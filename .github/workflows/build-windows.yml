@@ -1,0 +1,86 @@
+name: Build Windows app
+
+# Builds the desktop app on NW.js 0.72.0 (Chromium 109 = the last version that still runs on Windows 7).
+# Output per architecture (x64 for 64-bit, ia32 for 32-bit):
+#   Shipments-win-<arch>.exe  -> single self-extracting file, runs without installing anything
+#   Shipments-win-<arch>.zip  -> same app as a plain folder (fallback if an antivirus blocks the .exe)
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to publish (e.g. v1.0.0)"
+        required: true
+        default: "v1.0.0"
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+env:
+  NW_VERSION: "0.72.0"
+
+jobs:
+  build:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x64, ia32]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download NW.js ${{ env.NW_VERSION }} (${{ matrix.arch }})
+        shell: pwsh
+        run: |
+          $v = $env:NW_VERSION
+          Invoke-WebRequest "https://dl.nwjs.io/v$v/nwjs-v$v-win-${{ matrix.arch }}.zip" -OutFile nw.zip
+          Expand-Archive nw.zip -DestinationPath nwtmp
+          Move-Item "nwtmp/nwjs-v$v-win-${{ matrix.arch }}" app
+
+      - name: Add the application files
+        shell: pwsh
+        run: |
+          Copy-Item package.json, index.html, desktop.js app/
+          Copy-Item vendor app/vendor -Recurse
+
+      - name: Create the zip
+        shell: pwsh
+        run: Compress-Archive -Path app/* -DestinationPath "Shipments-win-${{ matrix.arch }}.zip"
+
+      - name: Create the single-file exe (7-Zip self-extracting)
+        shell: pwsh
+        run: |
+          $sevenZip = "C:\Program Files\7-Zip"
+          @'
+          ;!@Install@!UTF-8!
+          Title="نظام إدارة الشحنات"
+          RunProgram="nw.exe"
+          ;!@InstallEnd@!
+          '@ -replace '(?m)^\s+', '' | Set-Content -Path config.txt -Encoding utf8NoBOM
+          & "$sevenZip\7z.exe" a -mx=5 app.7z ".\app\*"
+          cmd /c copy /b "$sevenZip\7z.sfx" + config.txt + app.7z "Shipments-win-${{ matrix.arch }}.exe"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: shipments-win-${{ matrix.arch }}
+          path: |
+            Shipments-win-${{ matrix.arch }}.exe
+            Shipments-win-${{ matrix.arch }}.zip
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: |
+          gh release create "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --title "$TAG" \
+            --notes "نسخة سطح المكتب (NW.js ${NW_VERSION}). ويندوز 64 بت: x64 — ويندوز 32 بت: ia32." \
+            || gh release upload "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --clobber

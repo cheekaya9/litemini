@@ -1248,9 +1248,6 @@
             <button id="loginBtn" class="btn btn-primary login-btn" onclick="loginUser()">
                 <i class="fas fa-sign-in-alt"></i> دخول
             </button>
-            <button id="restoreAccountBtn" class="btn btn-outline-primary btn-sm rounded-pill" style="width:100%;margin-top:8px;font-size:0.85rem;padding:8px">
-                <i class="fas fa-user-shield me-1"></i> استعادة الحساب
-            </button>
         </div>
         <div class="login-footer">
             <i class="fas fa-shield-alt"></i> نظام إدارة الشحنات v1.0
@@ -1874,10 +1871,6 @@
             <input type="tel" id="accPhone" placeholder="رقم الموبايل">
         </div>
         <div class="form-group">
-            <label>البريد الإلكتروني</label>
-            <input type="email" id="accEmail" placeholder="البريد الإلكتروني">
-        </div>
-        <div class="form-group">
             <label id="accPasswordLabel">كلمة المرور</label>
             <input type="password" id="accPassword" placeholder="كلمة المرور">
         </div>
@@ -1998,9 +1991,9 @@
     let _serverDailyValue = '';
 
     // ======================== SUPABASE CONFIG (must be early) ========================
-    const SUPABASE_BASE = "https://evrqxgnqwngokukqerps.supabase.co";
-    const SUPABASE_AUTH_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV2cnF4Z25xd25nb2t1a3FlcnBzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY5ODE3NjgsImV4cCI6MjA5MjU1Nzc2OH0.2Ym96D5j5iuTZ43rdxlZk8EMu6Pyg4XfX2NOdMhqqr4";
-    const SUPABASE_HEADERS = { 'apikey': SUPABASE_AUTH_KEY, 'Authorization': `Bearer ${SUPABASE_AUTH_KEY}`, 'Content-Type': 'application/json' };
+    const SUPABASE_BASE = "https://qvrhiuziememutmafsak.supabase.co";
+    const SUPABASE_AUTH_KEY = "sb_publishable_WEaudIpaOBEAJkkhziDEJA_3hCJtQIm";
+    const SUPABASE_HEADERS = { 'apikey': SUPABASE_AUTH_KEY, 'Content-Type': 'application/json' }; // Authorization is added after login (user session token)
 
     // Auto-enable mouse-drag on all non-toast SweetAlert2 popups
     (function() {
@@ -3424,9 +3417,7 @@
             inputValidator: (value) => { if (!value) return 'برجاء إدخال كلمة المرور'; }
         });
         if (!isConfirmed) return;
-        const pwHash = await sha256Hex(enteredPassword);
-        const hashedPw = 'sha256$' + pwHash;
-        if (currentUser.password !== hashedPw && currentUser.password !== enteredPassword) {
+        if (!(await verifyPassword(enteredPassword))) {
             return Swal.fire('خطأ', 'كلمة المرور غير صحيحة', 'error');
         }
         const idsToDelete = new Set(selectedIds);
@@ -4786,8 +4777,7 @@
         printWin.document.body.appendChild(qrScript);
     }
 
-    const SUPABASE_URL = "https://evrqxgnqwngokukqerps.supabase.co/rest/v1/invoices";
-    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV2cnF4Z25xd25nb2t1a3FlcnBzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY5ODE3NjgsImV4cCI6MjA5MjU1Nzc2OH0.2Ym96D5j5iuTZ43rdxlZk8EMu6Pyg4XfX2NOdMhqqr4";
+    const SUPABASE_URL = SUPABASE_BASE + "/rest/v1/invoices";
     const UPLOAD_COLS = EXPORT_HEADERS.concat(["ملاحظات"]);
 
     const UPLOAD_NUMERIC = new Set(["المبلغ", "الصافي", "الشحن", "عدد", "عمولة المندوب"]);
@@ -4955,10 +4945,7 @@
         try {
             const res = await fetch(`${SUPABASE_URL}?select=كود الشحنة`, {
                 signal: queryAc.signal,
-                headers: {
-                    'apikey': SUPABASE_KEY,
-                    'Authorization': `Bearer ${SUPABASE_KEY}`
-                }
+                headers: SUPABASE_HEADERS
             });
             if (res.ok) {
                 const data = await res.json();
@@ -4986,8 +4973,7 @@
                 method: 'POST',
                 signal: uploadAc.signal,
                 headers: {
-                    'apikey': SUPABASE_KEY,
-                    'Authorization': `Bearer ${SUPABASE_KEY}`,
+                    ...SUPABASE_HEADERS,
                     'Content-Type': 'application/json',
                     'Prefer': 'resolution=merge-duplicates'
                 },
@@ -6134,6 +6120,89 @@
         }
     }
 
+    // ---- Supabase Auth helpers (phone number -> internal e-mail) ----
+    const AUTH_EMAIL_DOMAIN = 'litemini.app';
+    function phoneToEmail(p) { return String(p).trim().replace(/\s+/g, '') + '@' + AUTH_EMAIL_DOMAIN; }
+    let _session = null, _sessionAt = 0, _refreshTimer = null;
+
+    async function authRequest(path, body) {
+        const res = await fetch(SUPABASE_BASE + '/auth/v1/' + path, {
+            method: 'POST',
+            headers: { 'apikey': SUPABASE_AUTH_KEY, 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        const data = await res.json().catch(function() { return {}; });
+        if (!res.ok) {
+            const e = new Error(data.error_description || data.msg || data.message || 'auth error');
+            e.status = res.status;
+            throw e;
+        }
+        return data;
+    }
+
+    function applySessionData(d) {
+        _session = { access_token: d.access_token, refresh_token: d.refresh_token };
+        _sessionAt = Date.now();
+        SUPABASE_HEADERS['Authorization'] = 'Bearer ' + d.access_token;
+        if (localStorage.getItem('remember_login') === 'true') localStorage.setItem('refresh_token', d.refresh_token);
+        clearTimeout(_refreshTimer);
+        _refreshTimer = setTimeout(function() { doRefresh().catch(function(e) { console.warn('session refresh failed', e); }); },
+            Math.max(60, (d.expires_in || 3600) - 300) * 1000);
+    }
+
+    async function doRefresh() {
+        if (!_session || !_session.refresh_token) throw new Error('no session');
+        applySessionData(await authRequest('token?grant_type=refresh_token', { refresh_token: _session.refresh_token }));
+    }
+
+    window.addEventListener('focus', function() {
+        if (_session && Date.now() - _sessionAt > 40 * 60 * 1000) doRefresh().catch(function() {});
+    });
+
+    function signOutSession() {
+        clearTimeout(_refreshTimer);
+        if (_session && _session.access_token) {
+            fetch(SUPABASE_BASE + '/auth/v1/logout', { method: 'POST', headers: { 'apikey': SUPABASE_AUTH_KEY, 'Authorization': 'Bearer ' + _session.access_token } }).catch(function() {});
+        }
+        _session = null;
+        delete SUPABASE_HEADERS['Authorization'];
+    }
+
+    async function fetchMyProfile(uid) {
+        const res = await fetch(SUPABASE_BASE + '/rest/v1/profiles?id=eq.' + encodeURIComponent(uid) + '&select=*', { headers: SUPABASE_HEADERS });
+        if (!res.ok) throw new Error('فشل الاتصال بقاعدة البيانات');
+        const rows = await res.json();
+        return rows && rows[0];
+    }
+
+    // Re-check the current user's password (used before destructive actions)
+    async function verifyPassword(pw) {
+        try {
+            await authRequest('token?grant_type=password', { email: phoneToEmail(currentUser.phone), password: pw });
+            return true;
+        } catch (e) { return false; }
+    }
+
+    async function finishLogin(authData) {
+        applySessionData(authData);
+        const profile = await fetchMyProfile(authData.user.id);
+        if (!profile) { signOutSession(); throw new Error('الحساب غير موجود. الرجاء التواصل مع الإدارة'); }
+        if (!profile.approved) { signOutSession(); throw new Error('الحساب غير مفعل. الرجاء التواصل مع الإدارة'); }
+        currentUser = profile;
+        localStorage.setItem('current_user', JSON.stringify(profile));
+        return profile;
+    }
+
+    async function tryAutoLogin(refreshToken) {
+        try {
+            const d = await authRequest('token?grant_type=refresh_token', { refresh_token: refreshToken });
+            const profile = await finishLogin(d);
+            applyLoginSuccess(profile);
+        } catch (e) {
+            localStorage.removeItem('refresh_token');
+        }
+    }
+
     async function loginUser() {
         const phone = document.getElementById('loginPhone').value.trim();
         const password = document.getElementById('loginPassword').value;
@@ -6152,32 +6221,22 @@
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري تسجيل الدخول...';
 
         try {
-            const res = await fetch(`${SUPABASE_BASE}/rest/v1/users?phone=eq.${encodeURIComponent(phone)}&select=*`, {
-                headers: SUPABASE_HEADERS
-            });
-            if (!res.ok) throw new Error('فشل الاتصال بقاعدة البيانات');
-            const users = await res.json();
-            // Compare: stored password can be sha256$<hex> or plain text
-            const pwHash = await sha256Hex(password);
-            const hashedPw = 'sha256$' + pwHash;
-            const user = users && users.find(u => u.phone === phone && (u.password === hashedPw || u.password === password));
-            if (!user) {
-                throw new Error('رقم الموبايل أو كلمة المرور غير صحيحة');
-            }
-            if (!user.approved) {
-                throw new Error('الحساب غير مفعل. الرجاء التواصل مع الإدارة');
-            }
-            currentUser = user;
             if (remember) {
                 localStorage.setItem('saved_phone', phone);
-                localStorage.setItem('saved_password', password);
                 localStorage.setItem('remember_login', 'true');
             } else {
                 localStorage.removeItem('saved_phone');
-                localStorage.removeItem('saved_password');
                 localStorage.removeItem('remember_login');
+                localStorage.removeItem('refresh_token');
             }
-            localStorage.setItem('current_user', JSON.stringify(user));
+            let authData;
+            try {
+                authData = await authRequest('token?grant_type=password', { email: phoneToEmail(phone), password: password });
+            } catch (e) {
+                if (e.status === 400 || e.status === 401 || e.status === 422) throw new Error('رقم الموبايل أو كلمة المرور غير صحيحة');
+                throw new Error('فشل الاتصال بقاعدة البيانات');
+            }
+            const user = await finishLogin(authData);
             applyLoginSuccess(user);
         } catch (err) {
             errorEl.textContent = err.message || 'حدث خطأ أثناء تسجيل الدخول';
@@ -6218,12 +6277,12 @@
             cancelButtonText: 'إلغاء'
         }).then(res => {
             if (res.isConfirmed) {
+                signOutSession();
                 currentUser = null;
                 localStorage.removeItem('current_user');
-                if (!localStorage.getItem('remember_login')) {
-                    localStorage.removeItem('saved_phone');
-                    localStorage.removeItem('saved_password');
-                }
+                localStorage.removeItem('refresh_token');
+                localStorage.removeItem('saved_password');
+                if (!localStorage.getItem('remember_login')) localStorage.removeItem('saved_phone');
                 document.getElementById('loginOverlay').classList.remove('hidden');
                 document.getElementById('loginError').classList.remove('show');
                 document.getElementById('loggedInUserBadge').style.display = 'none';
@@ -6233,7 +6292,6 @@
                 document.getElementById('loginPassword').value = '';
                 if (localStorage.getItem('remember_login')) {
                     document.getElementById('loginPhone').value = localStorage.getItem('saved_phone') || '';
-                    document.getElementById('loginPassword').value = localStorage.getItem('saved_password') || '';
                     document.getElementById('loginRemember').checked = true;
                 }
             }
@@ -6258,7 +6316,7 @@
         var tbody = document.getElementById('accountsTableBody');
         tbody.innerHTML = '<tr><td colspan="6" class="accounts-empty">جاري التحميل...</td></tr>';
         try {
-            var res = await fetch(SUPABASE_BASE + '/rest/v1/users?select=*&order=id', { headers: SUPABASE_HEADERS });
+            var res = await fetch(SUPABASE_BASE + '/rest/v1/profiles?select=*&order=created_at', { headers: SUPABASE_HEADERS });
             if (!res.ok) throw new Error('فشل تحميل الحسابات');
             var users = await res.json();
             if (!users || !users.length) {
@@ -6325,7 +6383,7 @@
 
     function editAccount(id) {
         var user = null;
-        fetch(SUPABASE_BASE + '/rest/v1/users?id=eq.' + id + '&select=*', { headers: SUPABASE_HEADERS })
+        fetch(SUPABASE_BASE + '/rest/v1/profiles?id=eq.' + id + '&select=*', { headers: SUPABASE_HEADERS })
             .then(function(r) { return r.json(); })
             .then(function(users) {
                 if (users && users.length) showAccountModal(users[0]);
@@ -6343,38 +6401,30 @@
 
     async function saveAccount() {
         var username = document.getElementById('accUsername').value.trim();
-        var phone = document.getElementById('accPhone').value.trim();
-        var email = document.getElementById('accEmail').value.trim();
+        var phone = document.getElementById('accPhone').value.trim().replace(/\s+/g, '');
         var password = document.getElementById('accPassword').value;
         var approved = document.getElementById('accApproved').checked;
         var role = document.getElementById('accRole').value;
         var btn = document.getElementById('accountSaveBtn');
         if (!username) return Swal.fire({ icon: 'warning', title: 'تنبيه', text: 'الرجاء إدخال اسم المستخدم' });
         if (!phone) return Swal.fire({ icon: 'warning', title: 'تنبيه', text: 'الرجاء إدخال رقم الموبايل' });
+        if (!/^[0-9+]{6,20}$/.test(phone)) return Swal.fire({ icon: 'warning', title: 'تنبيه', text: 'رقم الموبايل يجب أن يحتوي على أرقام فقط' });
         if (!_editAccountId && !password) return Swal.fire({ icon: 'warning', title: 'تنبيه', text: 'الرجاء إدخال كلمة المرور' });
+        if (password && password.length < 8) return Swal.fire({ icon: 'warning', title: 'تنبيه', text: 'كلمة المرور يجب ألا تقل عن 8 أحرف' });
         btn.disabled = true;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        var wasEdit = !!_editAccountId;
         try {
-            var body = { username: username, phone: phone, email: email, approved: approved, role: role };
-            if (password) {
-                var pwHash = await sha256Hex(password);
-                body.password = 'sha256$' + pwHash;
-            }
-            if (_editAccountId) {
-                var res = await fetch(SUPABASE_BASE + '/rest/v1/users?id=eq.' + _editAccountId, {
-                    method: 'PATCH', headers: SUPABASE_HEADERS, body: JSON.stringify(body)
-                });
-                if (!res.ok) throw new Error('فشل تحديث الحساب');
-            } else {
-                body.approved = approved;
-                var res = await fetch(SUPABASE_BASE + '/rest/v1/users', {
-                    method: 'POST', headers: SUPABASE_HEADERS, body: JSON.stringify(body)
-                });
-                if (!res.ok) throw new Error('فشل إضافة الحساب');
-            }
+            var body = { action: wasEdit ? 'update' : 'create', id: _editAccountId, username: username, phone: phone, approved: approved, role: role };
+            if (password) body.password = password;
+            var res = await fetch(SUPABASE_BASE + '/functions/v1/admin-users', {
+                method: 'POST', headers: SUPABASE_HEADERS, body: JSON.stringify(body)
+            });
+            var out = await res.json().catch(function() { return {}; });
+            if (!res.ok) throw new Error(out.error || (wasEdit ? 'فشل تحديث الحساب' : 'فشل إضافة الحساب'));
             closeAccountModal();
             fetchAccounts();
-            Swal.fire({ icon: 'success', title: 'تم', text: _editAccountId ? 'تم تحديث الحساب' : 'تم إضافة الحساب', toast: true, position: 'top-end', showConfirmButton: false, timer: 2000 });
+            Swal.fire({ icon: 'success', title: 'تم', text: wasEdit ? 'تم تحديث الحساب' : 'تم إضافة الحساب', toast: true, position: 'top-end', showConfirmButton: false, timer: 2000 });
         } catch (err) {
             Swal.fire({ icon: 'error', title: 'خطأ', text: err.message });
         }
@@ -6393,7 +6443,7 @@
             confirmButtonColor: '#ef4444'
         }).then(function(res) {
             if (res.isConfirmed) {
-                fetch(SUPABASE_BASE + '/rest/v1/users?id=eq.' + id, { method: 'DELETE', headers: SUPABASE_HEADERS })
+                fetch(SUPABASE_BASE + '/functions/v1/admin-users', { method: 'POST', headers: SUPABASE_HEADERS, body: JSON.stringify({ action: 'delete', id: id }) })
                     .then(function(r) {
                         if (!r.ok) throw new Error('فشل حذف الحساب');
                         fetchAccounts();
@@ -6407,7 +6457,7 @@
     }
 
     function toggleApprove(id, approve) {
-        fetch(SUPABASE_BASE + '/rest/v1/users?id=eq.' + id, {
+        fetch(SUPABASE_BASE + '/rest/v1/profiles?id=eq.' + id, {
             method: 'PATCH', headers: SUPABASE_HEADERS, body: JSON.stringify({ approved: approve })
         }).then(function(r) {
             if (!r.ok) throw new Error('فشل');
@@ -6456,7 +6506,7 @@
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري البحث...';
 
         try {
-            var res = await fetch(SUPABASE_BASE + '/rest/v1/users?select=*&phone=eq.' + encodeURIComponent(phoneVal), {
+            var res = await fetch(SUPABASE_BASE + '/rest/v1/profiles?select=*&phone=eq.' + encodeURIComponent(phoneVal), {
                 headers: SUPABASE_HEADERS
             });
             if (!res.ok) throw new Error('فشل الاتصال بقاعدة البيانات');
@@ -6524,14 +6574,15 @@
 
     function checkLoginState() {
         document.getElementById('loginOverlay').classList.remove('hidden');
+        localStorage.removeItem('saved_password'); // old versions stored the password in clear text
         if (localStorage.getItem('remember_login') === 'true') {
             const phone = localStorage.getItem('saved_phone');
-            const password = localStorage.getItem('saved_password');
-            if (phone && password) {
+            if (phone) {
                 document.getElementById('loginPhone').value = phone;
-                document.getElementById('loginPassword').value = password;
                 document.getElementById('loginRemember').checked = true;
             }
+            const rt = localStorage.getItem('refresh_token');
+            if (rt) tryAutoLogin(rt);
         }
         return false;
     }

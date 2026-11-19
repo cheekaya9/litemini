@@ -1,0 +1,16 @@
+{
+  "name": "shipment-manager",
+  "version": "1.0.0",
+  "description": "نظام إدارة الشحنات - تطبيق سطح المكتب",
+  "main": "index.html",
+  "window": {
+    "title": "نظام إدارة الشحنات",
+    "width": 1400,
+    "height": 900,
+    "min_width": 1000,
+    "min_height": 700,
+    "resizable": true,
+    "frame": true,
+    "position": "center"
+  }
+}
