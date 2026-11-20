@@ -1650,7 +1650,7 @@
                     </button>
                 </div>
 
-                <input type="file" id="excelFileInput" accept=".xlsx,.xls,.xlsb,.xlsm" style="display:none">
+                <input type="file" id="excelFileInput" accept=".xlsx,.xls,.xlsb,.xlsm,.csv,.ods" style="display:none">
 
                 <div class="d-flex justify-content-between align-items-center mt-3 gap-3" id="fileNameRow" style="display:none">
                     <div class="d-flex align-items-center gap-2 px-3 py-1 rounded-pill" style="font-size:0.85rem;font-weight:700;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex-shrink:1;min-width:0" id="fileNameBadge">
@@ -2263,43 +2263,133 @@
     }
 
     // ======================== EXCEL SOURCE READER ========================
-    // Newer workbooks (.xlsb/.xlsx) keep the shipments in sheet "ALL" (table data1):
-    // header on row 20, data below it, columns B..V (column A is a helper column).
-    // Older files keep them in "Sheet1" with the header on row 1.
-    const ALL_SHEET_NAME = 'ALL';
-    const ALL_HEADER_ROW = 20;      // 1-based row number of the table header
-    const ALL_FIRST_COL = 1;        // B
-    const ALL_LAST_COL = 21;        // V
-    function extractShipmentRows(workbook) {
-        if (workbook.SheetNames.includes(ALL_SHEET_NAME)) {
-            const ws = workbook.Sheets[ALL_SHEET_NAME];
-            const ref = XLSX.utils.decode_range(ws['!ref'] || 'A1');
-            const range = { s: { r: ALL_HEADER_ROW - 1, c: ALL_FIRST_COL }, e: { r: Math.max(ref.e.r, ALL_HEADER_ROW - 1), c: ALL_LAST_COL } };
-            const json = XLSX.utils.sheet_to_json(ws, { range: range, defval: '' });
-            const headers = json.length ? Object.keys(json[0]) : [];
-            if (!headers.some(function(h) { return colMap[h] === 'customerName'; })) {
-                return { error: 'لم أجد رأس الجدول (اسم العميل) في الصف ' + ALL_HEADER_ROW + ' من ورقة ' + ALL_SHEET_NAME };
+    // Finds the shipments table automatically: any sheet, any header row (first 60 rows),
+    // any column range. The header row is the one that contains the most known column names
+    // (اسم العميل، العنوان، الهاتف، المبلغ، كود الشحنة ...). Columns before the first and after the
+    // last recognised header are ignored (e.g. a helper column A).
+    const HEADER_SCAN_ROWS = 60, HEADER_SCAN_COLS = 80, MIN_KNOWN_HEADERS = 4;
+    const ID_COLUMNS = ['customerName', 'phone', 'code', 'sender', 'address'];
+
+    function knownColumnOf(text) {
+        const h = String(text == null ? '' : text).trim();
+        if (!h) return null;
+        if (colMap[h]) return colMap[h];
+        if (allPossibleColumns.indexOf(h) !== -1) return h;
+        if (h === 'العدد') return 'count';
+        if (h === 'التقفيل') return 'closing';
+        return null;
+    }
+
+    function findHeaderCandidates(workbook) {
+        const out = [];
+        workbook.SheetNames.forEach(function(name, sheetIndex) {
+            if (typeof HISTORY_SHEET !== 'undefined' && name === HISTORY_SHEET) return;
+            const ws = workbook.Sheets[name];
+            if (!ws || !ws['!ref']) return;
+            const ref = XLSX.utils.decode_range(ws['!ref']);
+            const lastRow = Math.min(ref.e.r, ref.s.r + HEADER_SCAN_ROWS - 1);
+            const lastCol = Math.min(ref.e.c, ref.s.c + HEADER_SCAN_COLS - 1);
+            let best = null;
+            for (let r = ref.s.r; r <= lastRow; r++) {
+                const keys = new Set();
+                let minC = -1, maxC = -1;
+                for (let c = ref.s.c; c <= lastCol; c++) {
+                    const cell = ws[XLSX.utils.encode_cell({ r: r, c: c })];
+                    if (!cell || typeof cell.v !== 'string') continue;
+                    const k = knownColumnOf(cell.v);
+                    if (!k) continue;
+                    keys.add(k);
+                    if (minC === -1) minC = c;
+                    maxC = c;
+                }
+                if (keys.size >= MIN_KNOWN_HEADERS && ID_COLUMNS.some(function(k) { return keys.has(k); })) {
+                    if (!best || keys.size > best.score) best = { sheet: name, sheetIndex: sheetIndex, headerRow: r, firstCol: minC, lastCol: maxC, score: keys.size, dataRows: 0 };
+                }
             }
-            // dates are stored as Excel serial numbers -> d/m/yyyy text
-            const dateHeaders = headers.filter(function(h) { return colMap[h] === 'date'; });
-            if (dateHeaders.length) {
-                json.forEach(function(row) {
-                    dateHeaders.forEach(function(h) {
-                        const v = row[h];
-                        if (typeof v === 'number' && v > 20000 && v < 80000) {
-                            const d = XLSX.SSF.parse_date_code(v);
-                            if (d) row[h] = d.d + '/' + d.m + '/' + d.y;
-                        }
-                    });
+            if (best) {
+                // real data rows = rows below the header with a value in an identifying column (so empty templates don't win)
+                const idCols = [];
+                for (let c = best.firstCol; c <= best.lastCol; c++) {
+                    const hc = ws[XLSX.utils.encode_cell({ r: best.headerRow, c: c })];
+                    if (hc && ID_COLUMNS.indexOf(knownColumnOf(hc.v)) !== -1) idCols.push(c);
+                }
+                let n = 0;
+                for (let r = best.headerRow + 1; r <= ref.e.r; r++) {
+                    for (let i = 0; i < idCols.length; i++) {
+                        const cell = ws[XLSX.utils.encode_cell({ r: r, c: idCols[i] })];
+                        if (cell && cell.v != null && String(cell.v).trim() !== '') { n++; break; }
+                    }
+                }
+                best.dataRows = n;
+                out.push(best);
+            }
+        });
+        out.sort(function(a, b) { return b.score - a.score || b.dataRows - a.dataRows; });
+        return out;
+    }
+
+    function readWorkbookFile(bytes, name) {
+        if (/\.csv$/i.test(name || '')) {
+            let text = new TextDecoder('utf-8').decode(bytes);
+            if (text.indexOf('�') !== -1) { try { text = new TextDecoder('windows-1256').decode(bytes); } catch (e) {} }
+            return XLSX.read(text, { type: 'string', raw: true });
+        }
+        return XLSX.read(bytes, { type: 'array' });
+    }
+
+    async function pickCandidate(cands) {
+        const best = cands[0];
+        const close = cands.filter(function(c) { return c.score >= Math.max(MIN_KNOWN_HEADERS, best.score - 2); });
+        if (close.length < 2) return best;
+        let pref = '';
+        try { pref = localStorage.getItem('import_pref_sheet') || ''; } catch (e) {}
+        const remembered = close.find(function(c) { return c.sheet === pref; });
+        if (remembered) return remembered;
+        const opts = {};
+        close.forEach(function(c, i) { opts[i] = c.sheet + '  —  الرأس في الصف ' + (c.headerRow + 1) + '  —  حوالي ' + c.dataRows + ' صف'; });
+        const res = await Swal.fire({
+            icon: 'question', title: 'أي ورقة تريد فتحها؟',
+            text: 'وجدت أكثر من ورقة تحتوي على جدول شحنات.',
+            input: 'radio', inputOptions: opts, inputValue: '0',
+            showCancelButton: true, confirmButtonText: 'فتح', cancelButtonText: 'إلغاء'
+        });
+        if (!res.isConfirmed) return null;
+        const chosen = close[parseInt(res.value, 10)] || best;
+        try { localStorage.setItem('import_pref_sheet', chosen.sheet); } catch (e) {}
+        return chosen;
+    }
+
+    async function extractShipmentRows(workbook, fileName) {
+        const found = findHeaderCandidates(workbook);
+        if (!found.length) {
+            return { error: 'لم أجد جدول شحنات في الملف. تأكد أن الرأس يحتوي أسماء أعمدة مثل: اسم العميل، العنوان، الهاتف، المبلغ، كود الشحنة' };
+        }
+        const cands = found.filter(function(c) { return c.dataRows > 0; });
+        if (!cands.length) return { error: 'وجدت جدولاً في ورقة ' + found[0].sheet + ' لكنه لا يحتوي على بيانات' };
+        const pick = await pickCandidate(cands);
+        if (!pick) return { cancelled: true };
+        const ws = workbook.Sheets[pick.sheet];
+        const ref = XLSX.utils.decode_range(ws['!ref']);
+        const range = { s: { r: pick.headerRow, c: pick.firstCol }, e: { r: ref.e.r, c: pick.lastCol } };
+        const json = XLSX.utils.sheet_to_json(ws, { range: range, defval: '' });
+        const headers = json.length ? Object.keys(json[0]) : [];
+        // dates stored as Excel serial numbers -> d/m/yyyy text
+        const dateHeaders = headers.filter(function(h) { return colMap[h] === 'date'; });
+        if (dateHeaders.length) {
+            json.forEach(function(row) {
+                dateHeaders.forEach(function(h) {
+                    const v = row[h];
+                    if (typeof v === 'number' && v > 20000 && v < 80000) {
+                        const d = XLSX.SSF.parse_date_code(v);
+                        if (d) row[h] = d.d + '/' + d.m + '/' + d.y;
+                    }
                 });
-            }
-            // The workbook is the user's own accounting file: never write back into it.
-            return { json: json, readOnlySource: true };
+            });
         }
-        if (workbook.SheetNames.includes('Sheet1')) {
-            return { json: XLSX.utils.sheet_to_json(workbook.Sheets['Sheet1'], { defval: '' }), readOnlySource: false };
-        }
-        return { error: 'لا توجد ورقة عمل باسم ' + ALL_SHEET_NAME + ' أو Sheet1' };
+        // Writing back into the source file is only safe for the classic layout (plain .xlsx, first sheet, header on row 1).
+        // For anything else (xlsb, csv, ods, other sheets/rows) the user's own workbook must never be overwritten.
+        const classic = /\.xlsx$/i.test(fileName || '') && pick.sheetIndex === 0 && pick.headerRow === 0 && pick.firstCol === 0;
+        return { json: json, readOnlySource: !classic, sheet: pick.sheet, headerRow: pick.headerRow + 1 };
     }
 
     async function handleFile(file) {
@@ -2317,8 +2407,9 @@
                     showLoading(true, 'جاري قراءة البيانات...', 40);
                     await sleep(0);
                     const data = new Uint8Array(e.target.result);
-                    const workbook = XLSX.read(data, {type: 'array'});
-                    const ext = extractShipmentRows(workbook);
+                    const workbook = readWorkbookFile(data, file.name);
+                    const ext = await extractShipmentRows(workbook, file.name);
+                    if (ext.cancelled) { showLoading(false); return; }
                     if (ext.error) { showLoading(false); Swal.fire('تحذير', ext.error, 'warning'); return; }
                     if (ext.readOnlySource) _currentFilePath = ''; // never save back into the source workbook
                     if (_cancelRequested) { showLoading(false); return; }
@@ -2469,8 +2560,9 @@
             } else {
                 throw new Error('desktopAPI غير متوفرة');
             }
-            const workbook = XLSX.read(buf, { type: 'array' });
-            const ext = extractShipmentRows(workbook);
+            const workbook = readWorkbookFile(buf, _currentFilePath);
+            const ext = await extractShipmentRows(workbook, _currentFilePath);
+            if (ext.cancelled) { showLoading(false); return; }
             if (ext.error) { showLoading(false); Swal.fire('تحذير', ext.error, 'warning'); return; }
             const json = ext.json;
             const allHeaders = json.length ? Object.keys(json[0]) : [];
