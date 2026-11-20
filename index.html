@@ -6233,7 +6233,9 @@
             try {
                 authData = await authRequest('token?grant_type=password', { email: phoneToEmail(phone), password: password });
             } catch (e) {
+                if (/not confirmed/i.test(e.message)) throw new Error('الحساب غير مؤكد. الرجاء التواصل مع الإدارة');
                 if (e.status === 400 || e.status === 401 || e.status === 422) throw new Error('رقم الموبايل أو كلمة المرور غير صحيحة');
+                if (e.status === 429) throw new Error('محاولات كثيرة. انتظر دقيقة ثم حاول مرة أخرى');
                 throw new Error('فشل الاتصال بقاعدة البيانات');
             }
             const user = await finishLogin(authData);
