@@ -316,6 +316,15 @@
         .loading-overlay .loading-cancel-btn:disabled { opacity: 0.5; cursor: not-allowed; }
         .swal2-container { z-index: 100000 !important; }
         .swal2-popup { margin: auto !important; }
+        /* SweetAlert2 11.26 builds its hover/active button colours with color-mix(), which Chromium 109
+           (the NW.js build that still runs on Windows 7) does not support: the button background then becomes
+           transparent (looks white) on mouse-over. Use plain colours + a dark overlay instead. */
+        .swal2-container .swal2-styled.swal2-confirm:hover { background-color: var(--swal2-confirm-button-background-color); background-image: linear-gradient(rgba(0,0,0,.1), rgba(0,0,0,.1)); }
+        .swal2-container .swal2-styled.swal2-confirm:active { background-color: var(--swal2-confirm-button-background-color); background-image: linear-gradient(rgba(0,0,0,.2), rgba(0,0,0,.2)); }
+        .swal2-container .swal2-styled.swal2-deny:hover { background-color: var(--swal2-deny-button-background-color); background-image: linear-gradient(rgba(0,0,0,.1), rgba(0,0,0,.1)); }
+        .swal2-container .swal2-styled.swal2-deny:active { background-color: var(--swal2-deny-button-background-color); background-image: linear-gradient(rgba(0,0,0,.2), rgba(0,0,0,.2)); }
+        .swal2-container .swal2-styled.swal2-cancel:hover { background-color: var(--swal2-cancel-button-background-color); background-image: linear-gradient(rgba(0,0,0,.1), rgba(0,0,0,.1)); }
+        .swal2-container .swal2-styled.swal2-cancel:active { background-color: var(--swal2-cancel-button-background-color); background-image: linear-gradient(rgba(0,0,0,.2), rgba(0,0,0,.2)); }
         .housing-duplicate-row { background: rgba(34, 197, 94, 0.05); }
         .changed-cell { background: rgba(245, 158, 11, 0.15) !important; border: 1px solid var(--warning) !important; position: relative; }
         .error-cell { background: rgba(239, 68, 68, 0.1) !important; border: 1px solid var(--danger) !important; position: relative; }
