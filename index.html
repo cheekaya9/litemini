@@ -2116,6 +2116,7 @@
         "الموظف": "employee",
         "حدث": "event",
         "m": "m",
+        "م": "m",
         "ارشيف": "archived"
     };
     // Pre-computed reverse map: internalName → best Excel header (first defined synonym)
@@ -2261,6 +2262,46 @@
         }
     }
 
+    // ======================== EXCEL SOURCE READER ========================
+    // Newer workbooks (.xlsb/.xlsx) keep the shipments in sheet "ALL" (table data1):
+    // header on row 20, data below it, columns B..V (column A is a helper column).
+    // Older files keep them in "Sheet1" with the header on row 1.
+    const ALL_SHEET_NAME = 'ALL';
+    const ALL_HEADER_ROW = 20;      // 1-based row number of the table header
+    const ALL_FIRST_COL = 1;        // B
+    const ALL_LAST_COL = 21;        // V
+    function extractShipmentRows(workbook) {
+        if (workbook.SheetNames.includes(ALL_SHEET_NAME)) {
+            const ws = workbook.Sheets[ALL_SHEET_NAME];
+            const ref = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+            const range = { s: { r: ALL_HEADER_ROW - 1, c: ALL_FIRST_COL }, e: { r: Math.max(ref.e.r, ALL_HEADER_ROW - 1), c: ALL_LAST_COL } };
+            const json = XLSX.utils.sheet_to_json(ws, { range: range, defval: '' });
+            const headers = json.length ? Object.keys(json[0]) : [];
+            if (!headers.some(function(h) { return colMap[h] === 'customerName'; })) {
+                return { error: 'لم أجد رأس الجدول (اسم العميل) في الصف ' + ALL_HEADER_ROW + ' من ورقة ' + ALL_SHEET_NAME };
+            }
+            // dates are stored as Excel serial numbers -> d/m/yyyy text
+            const dateHeaders = headers.filter(function(h) { return colMap[h] === 'date'; });
+            if (dateHeaders.length) {
+                json.forEach(function(row) {
+                    dateHeaders.forEach(function(h) {
+                        const v = row[h];
+                        if (typeof v === 'number' && v > 20000 && v < 80000) {
+                            const d = XLSX.SSF.parse_date_code(v);
+                            if (d) row[h] = d.d + '/' + d.m + '/' + d.y;
+                        }
+                    });
+                });
+            }
+            // The workbook is the user's own accounting file: never write back into it.
+            return { json: json, readOnlySource: true };
+        }
+        if (workbook.SheetNames.includes('Sheet1')) {
+            return { json: XLSX.utils.sheet_to_json(workbook.Sheets['Sheet1'], { defval: '' }), readOnlySource: false };
+        }
+        return { error: 'لا توجد ورقة عمل باسم ' + ALL_SHEET_NAME + ' أو Sheet1' };
+    }
+
     async function handleFile(file) {
         _pendingSyncFailures.clear();
         _updateUploadBtnFlash();
@@ -2277,12 +2318,13 @@
                     await sleep(0);
                     const data = new Uint8Array(e.target.result);
                     const workbook = XLSX.read(data, {type: 'array'});
-                    if (!workbook.SheetNames.includes("Sheet1")) { showLoading(false); Swal.fire('تحذير', 'لا يوجد ورقة عمل باسم Sheet1', 'warning'); return; }
+                    const ext = extractShipmentRows(workbook);
+                    if (ext.error) { showLoading(false); Swal.fire('تحذير', ext.error, 'warning'); return; }
+                    if (ext.readOnlySource) _currentFilePath = ''; // never save back into the source workbook
                     if (_cancelRequested) { showLoading(false); return; }
                     showLoading(true, 'جاري تجهيز الأعمدة...', 60);
                     await sleep(0);
-                    const sheet = workbook.Sheets["Sheet1"];
-                    const json = XLSX.utils.sheet_to_json(sheet, {defval: ""});
+                    const json = ext.json;
                     const allHeaders = json.length ? Object.keys(json[0]) : [];
                     _fileColumnSet = new Set(allHeaders);
                     _extraColumns = allHeaders.filter(h => !allPossibleColumns.includes(h) && !colMap[h] && h !== 'العدد' && h !== 'التقفيل');
@@ -2428,9 +2470,9 @@
                 throw new Error('desktopAPI غير متوفرة');
             }
             const workbook = XLSX.read(buf, { type: 'array' });
-            if (!workbook.SheetNames.includes("Sheet1")) { showLoading(false); Swal.fire('تحذير', 'لا يوجد ورقة عمل باسم Sheet1', 'warning'); return; }
-            const sheet = workbook.Sheets["Sheet1"];
-            const json = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+            const ext = extractShipmentRows(workbook);
+            if (ext.error) { showLoading(false); Swal.fire('تحذير', ext.error, 'warning'); return; }
+            const json = ext.json;
             const allHeaders = json.length ? Object.keys(json[0]) : [];
             _fileColumnSet = new Set(allHeaders);
             _extraColumns = allHeaders.filter(h => !allPossibleColumns.includes(h) && !colMap[h] && h !== 'العدد' && h !== 'التقفيل');
