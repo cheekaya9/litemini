@@ -9,6 +9,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@200..1000&display=swap" rel="stylesheet">
     <script src="desktop.js"></script>
     <script src="vendor/xlsx.full.min.js"></script>
+    <script src="vendor/jszip.min.js"></script>
     <script src="vendor/sweetalert2.min.js"></script>
     <script src="vendor/qrcode.min.js"></script>
     <script src="vendor/d3.v7.min.js"></script>
@@ -3620,6 +3621,29 @@
 
     function isDesktopApp() { return !!(window.desktopAPI && window.desktopAPI.isDesktopApp); }
 
+    // Browser / liteX mode: pack many exported files into ONE zip (a single "Save as" dialog).
+    // Windows 7/8 Explorer cannot read UTF-8 (Arabic) names inside a zip, so there the old
+    // one-download-per-file behaviour is kept.
+    function canZip() { return !!window.JSZip && !/Windows NT (5|6\.[0-2])\b/.test(navigator.userAgent); }
+    function safeFileName(name) { return String(name).replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_').trim() || 'ملف'; }
+    async function downloadFilesAsZip(files, zipName) {
+        const zip = new JSZip();
+        const used = new Set();
+        files.forEach(function(f) {
+            const base = safeFileName(String(f.name).replace(/\.xlsx$/i, ''));
+            let n = base, i = 2;
+            while (used.has(n.toLowerCase())) n = base + ' (' + (i++) + ')';
+            used.add(n.toLowerCase());
+            zip.file(n + '.xlsx', f.data);
+        });
+        const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = zipName;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function() { URL.revokeObjectURL(url); }, 60000);
+    }
+
     // Error Log Functions
     function updateErrorBadge() {
         const badge = document.getElementById('errorBadge');
@@ -3988,7 +4012,7 @@
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
             
-            if (isDesktopApp()) {
+            if (isDesktopApp() || canZip()) {
                 const buffer = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
                 exportFiles.push({ name: `${repName}.xlsx`, data: buffer });
             } else {
@@ -4012,6 +4036,13 @@
                     const a = document.createElement("a");
                     a.href = url; a.download = f.name; a.click();
                 });
+            }
+        } else if (!isDesktopApp() && exportFiles.length) {
+            try {
+                await downloadFilesAsZip(exportFiles, 'المناديب.zip');
+                Swal.fire('تم التصدير', 'تم تحميل ملف مضغوط واحد يحتوي كل الملفات', 'success');
+            } catch (e) {
+                Swal.fire('خطأ', 'فشل إنشاء الملف المضغوط: ' + e.message, 'error');
             }
         } else if (!isDesktopApp()) {
             Swal.fire('تم التصدير', 'تم تحميل الملفات بنجاح بنسخ منفصلة', 'success');
@@ -4056,7 +4087,7 @@
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
             
-            if (isDesktopApp()) {
+            if (isDesktopApp() || canZip()) {
                 const buffer = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
                 exportFiles.push({ name: `${senderName}.xlsx`, data: buffer });
             } else {
@@ -4080,6 +4111,13 @@
                     const a = document.createElement("a");
                     a.href = url; a.download = f.name; a.click();
                 });
+            }
+        } else if (!isDesktopApp() && exportFiles.length) {
+            try {
+                await downloadFilesAsZip(exportFiles, 'الراسلين.zip');
+                Swal.fire('تم التصدير', 'تم تحميل ملف مضغوط واحد يحتوي كل الملفات', 'success');
+            } catch (e) {
+                Swal.fire('خطأ', 'فشل إنشاء الملف المضغوط: ' + e.message, 'error');
             }
         } else if (!isDesktopApp()) {
             Swal.fire('تم التصدير', 'تم تحميل الملفات بنجاح بنسخ منفصلة', 'success');
@@ -4909,7 +4947,13 @@
                 qrScript.src = 'vendor/qrcode.min.js';
             }
         } else {
-            qrScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+            qrScript.src = new URL('vendor/qrcode.min.js', location.href).href;
+            qrScript.onerror = function() {
+                var f = printWin.document.createElement('script');
+                f.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+                f.onload = qrScript.onload;
+                printWin.document.body.appendChild(f);
+            };
         }
         qrScript.onload = function() {
             selected.forEach(function(r, i) {
