@@ -1,0 +1,22 @@
+plugins { id 'com.android.application' }
+android {
+    namespace 'com.litemini.shipments'
+    compileSdk 34
+    defaultConfig {
+        applicationId 'com.litemini.shipments'
+        minSdk 21
+        targetSdk 34
+        versionCode 1
+        versionName '1.0'
+    }
+    // fixed key so every build can be installed over the previous one
+    signingConfigs {
+        main {
+            storeFile file('litemini.keystore')
+            storePassword 'litemini'
+            keyAlias 'litemini'
+            keyPassword 'litemini'
+        }
+    }
+    buildTypes { release { minifyEnabled false; signingConfig signingConfigs.main } }
+}

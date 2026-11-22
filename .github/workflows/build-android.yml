@@ -1,0 +1,36 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (e.g. apk-v1)"
+        required: true
+        default: "apk-v1"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.5"
+      - name: Build release APK
+        run: gradle -p android assembleRelease --no-daemon
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.inputs.tag }}
+        run: |
+          cp android/app/build/outputs/apk/release/app-release.apk Shipments.apk
+          gh release create "$TAG" Shipments.apk --repo "$GITHUB_REPOSITORY" --title "Android $TAG" \
+            --notes "تطبيق أندرويد: حمّل Shipments.apk وثبّته. زر ⟳ تحديث في الأعلى يجلب آخر نسخة بدون إعادة تنزيل." \
+            || gh release upload "$TAG" Shipments.apk --repo "$GITHUB_REPOSITORY" --clobber
