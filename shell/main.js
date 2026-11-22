@@ -36,7 +36,10 @@ function showSetup() { if (win && !win.isDestroyed()) win.loadFile(path.join(__d
 function openApp() {
   if (!win || win.isDestroyed()) return;
   if (!appUrl) return showSetup();
-  win.loadURL(appUrl);
+  // always start from a clean HTTP cache so updates show immediately (login/data in localStorage are kept)
+  session.defaultSession.clearCache().catch(() => {}).finally(() => {
+    if (win && !win.isDestroyed()) win.loadURL(appUrl, { extraHeaders: 'pragma: no-cache\ncache-control: no-cache\n' });
+  });
 }
 function showOffline() {
   if (win && !win.isDestroyed()) win.loadFile(path.join(__dirname, 'offline.html'), { query: { u: appUrl } });
@@ -49,6 +52,7 @@ function buildMenu() {
     { label: 'الموقع', submenu: [
       { label: 'تغيير الرابط…', accelerator: 'Ctrl+Shift+U', registerAccelerator: false, click: () => showSetup() },
       { label: 'إعادة تحميل', accelerator: 'F5', registerAccelerator: false, click: () => { if (win && !win.isDestroyed()) { if (win.webContents.getURL().startsWith('file:')) openApp(); else win.webContents.reload(); } } },
+      { label: 'تحديث التطبيق (مسح الكاش)', accelerator: 'Ctrl+F5', registerAccelerator: false, click: () => openApp() },
       { label: 'العودة للرابط الأساسي', click: () => openApp() },
       { type: 'separator' },
       { label: 'خروج', click: () => { if (win && !win.isDestroyed()) win.close(); } }
@@ -78,6 +82,7 @@ function createWindow() {
     if (input.type !== 'keyDown') return;
     const k = String(input.key || '').toLowerCase();
     if (input.control && input.shift && k === 'u') { e.preventDefault(); showSetup(); }
+    else if (k === 'f5' && input.control) { e.preventDefault(); openApp(); }
     else if (k === 'f5' || (input.control && k === 'r')) { e.preventDefault(); wc.reload(); }
   });
   wc.on('page-title-updated', (e) => { e.preventDefault(); });   // keep the window title "liteX"
