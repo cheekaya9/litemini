@@ -2680,7 +2680,7 @@
         var hasColFilters = colFilters.length > 0;
         var cfKeys = colFilters.filter(function(e){ return e[1] && e[1].length; });
         var cfLen = cfKeys.length;
-        if (hasColFilters && cfLen === 0) { currentDisplayData = []; currentTablePage = 1; updateStats(); requestRender(); updateClearFiltersBtnState(); return; }
+        if (colFilters.some(function(e){ return Array.isArray(e[1]) && e[1].length === 0; })) { currentDisplayData = []; currentTablePage = 1; updateStats(); requestRender(); updateClearFiltersBtnState(); return; }
         let filtered = fullDataset.filter(r => {
             if(_archiveFilter === 'active' && r._archived) return false;
             if(_archiveFilter === 'archived' && !r._archived) return false;
@@ -2856,8 +2856,8 @@
             if (!visibleCols.has(c) || c === 'm') continue;
             _visibleColsCache.push(c);
             var v = activeColumnFilters[c] || '';
-            var hasFilter = Array.isArray(v) ? v.length > 0 : !!v;
-            var label = Array.isArray(v) && v.length ? v.length + ' مختار' : v;
+            var hasFilter = Array.isArray(v) ? true : !!v;
+            var label = Array.isArray(v) ? (v.length ? v.length + ' مختار' : 'لا شيء') : v;
             var w = colWidths[c] ? 'style="width:' + colWidths[c] + 'px"' : '';
             html += '<th class="col-std' + (hasFilter ? ' col-filtered' : '') + '" data-col="' + c + '" ' + (w||'') + '><button class="column-filter-trigger ' + (hasFilter ? 'active' : '') + '" onclick="toggleColFilter(\'' + c + '\', this)"><span>' + (colDisplay[c] || c) + '</span>' + (hasFilter ? '<span class="column-filter-trigger-value">' + label + '</span>' : '') + '</button><div class="resizer" onmousedown="initResize(event, \'' + c + '\')"></div></th>';
         }
@@ -3129,6 +3129,16 @@
         document.body.appendChild(popup);
         var listEl = popup.querySelector('#colOptsList'), countEl = popup.querySelector('#cfpCount'), inp = popup.querySelector('#colFilterInput');
         var term = '';
+        // starting selection: the active filter, or (when none) the values currently shown in the table
+        var sel = new Set();
+        if (Array.isArray(activeColumnFilters[c])) {
+            activeColumnFilters[c].forEach(function(v) { sel.add(v); });
+        } else {
+            for (var vi = 0; vi < currentDisplayData.length; vi++) {
+                var dv = normalize(currentDisplayData[vi][c]);
+                sel.add(dv ? dv : '__empty__');
+            }
+        }
         function matching() {
             var t = term.toLowerCase();
             var list = opts.filter(function(o) { return !t || o.toLowerCase().indexOf(t) !== -1; });
@@ -3140,7 +3150,6 @@
                    '<span class="cfp-label">' + escapeHtml(label) + '</span><span class="cfp-n">' + n + '</span></label>';
         }
         function render() {
-            var sel = new Set(activeColumnFilters[c] || []);
             var m = matching(), html = '';
             if (m.showEmpty) html += row('__empty__', '(الفارغ)', emptyCount, sel.has('__empty__'));
             m.list.slice(0, MAX_SHOWN).forEach(function(o) { html += row(o, o, counts[o], sel.has(o)); });
@@ -3150,27 +3159,28 @@
             var total = opts.length + (emptyCount > 0 ? 1 : 0);
             countEl.textContent = 'المختار: ' + sel.size + ' من ' + total + ' قيمة';
         }
-        function commit(arr) {
-            if (arr.length) activeColumnFilters[c] = arr; else delete activeColumnFilters[c];
+        function commit() {
+            var total = opts.length + (emptyCount > 0 ? 1 : 0);
+            var all = sel.size >= total && opts.every(function(o) { return sel.has(o); }) && (emptyCount === 0 || sel.has('__empty__'));
+            if (all) delete activeColumnFilters[c];            // everything ticked = no filter
+            else activeColumnFilters[c] = Array.from(sel);     // [] = nothing ticked = no rows
             updateFilterTrigger(c);
             applyFilters();   // instant: the table updates on every click
             render();
         }
         listEl.addEventListener('change', function(e) {
             var cb = e.target; if (!cb || cb.type !== 'checkbox') return;
-            var arr = (activeColumnFilters[c] || []).slice(), v = cb.getAttribute('data-val');
-            var i = arr.indexOf(v);
-            if (cb.checked && i === -1) arr.push(v); else if (!cb.checked && i > -1) arr.splice(i, 1);
-            commit(arr);
+            var v = cb.getAttribute('data-val');
+            if (cb.checked) sel.add(v); else sel.delete(v);
+            commit();
         });
         popup.querySelector('.cfp-actions').addEventListener('click', function(e) {
             var act = e.target && e.target.getAttribute('data-act'); if (!act) return;
-            if (act === 'none') { commit([]); return; }
-            // select all: every value that matches the current search (all of them when the search is empty)
-            var m = matching(), arr = (activeColumnFilters[c] || []).slice();
-            m.list.forEach(function(o) { if (arr.indexOf(o) === -1) arr.push(o); });
-            if (m.showEmpty && arr.indexOf('__empty__') === -1) arr.push('__empty__');
-            commit(arr);
+            // both buttons act on the values matching the current search (all values when the search is empty)
+            var m = matching();
+            m.list.forEach(function(o) { if (act === 'all') sel.add(o); else sel.delete(o); });
+            if (m.showEmpty) { if (act === 'all') sel.add('__empty__'); else sel.delete('__empty__'); }
+            commit();
         });
         inp.addEventListener('input', function() { term = this.value; render(); });
         render();
@@ -3191,10 +3201,10 @@
         var btn = th.querySelector('.column-filter-trigger');
         if (!btn) return;
         var v = activeColumnFilters[c];
-        var hasFilter = Array.isArray(v) ? v.length > 0 : !!v;
+        var hasFilter = Array.isArray(v) ? true : !!v;
         th.classList.toggle('col-filtered', hasFilter);
         btn.classList.toggle('active', hasFilter);
-        var label = Array.isArray(v) && v.length ? v.length + ' مختار' : v || '';
+        var label = Array.isArray(v) ? (v.length ? v.length + ' مختار' : 'لا شيء') : v || '';
         var existing = btn.querySelector('.column-filter-trigger-value');
         if (hasFilter) {
             if (!existing) {
