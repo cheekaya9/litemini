@@ -195,6 +195,23 @@
         .column-filter-option:hover { background: rgba(59,130,246,0.1); }
         .column-filter-option.clear { color: var(--danger); font-weight: bold; border-bottom: 1px solid #e2e8f0; border-radius: 0; margin-bottom: 4px; }
 
+
+        /* Column filter popup (instant filter with select all / clear all) */
+        .column-filter-popup.cfp { padding: 0; max-height: none; overflow: hidden; display: flex; flex-direction: column; max-height: 70vh; }
+        .cfp-search { padding: 8px; border-bottom: 1px solid #e2e8f0; }
+        .cfp-search input { font-size: 0.78rem; }
+        .cfp-actions { display: flex; gap: 6px; padding: 8px; border-bottom: 1px solid #e2e8f0; }
+        .cfp-actions button { flex: 1; border: 0; border-radius: 8px; padding: 6px 0; font-size: 0.75rem; font-weight: 700; cursor: pointer; font-family: inherit; }
+        .cfp-all { background: #dcfce7; color: #15803d; } .cfp-all:hover { background: #bbf7d0; }
+        .cfp-none { background: #fee2e2; color: #b91c1c; } .cfp-none:hover { background: #fecaca; }
+        .cfp-count { padding: 5px 10px; font-size: 0.7rem; color: #64748b; background: rgba(148,163,184,0.12); }
+        .cfp-list { overflow-y: auto; max-height: 260px; }
+        .cfp-row { display: flex !important; align-items: center; gap: 8px; margin: 0; cursor: pointer; }
+        .cfp-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .cfp-n { color: #94a3b8; font-size: 0.68rem; }
+        .cfp-more { padding: 8px 10px; font-size: 0.7rem; color: #94a3b8; text-align: center; }
+        .column-filter-popup.cfp .cfp-search, .column-filter-popup.cfp .cfp-actions { border-color: #e2e8f0; }
+
         /* Widths */
         .col-select { width: 35px; min-width: 35px; }
         .col-assign { width: 110px; min-width: 110px; }
@@ -2688,7 +2705,8 @@
             for (var fi = 0; fi < cfLen; fi++) {
                 var c = cfKeys[fi][0], v = cfKeys[fi][1];
                 if (Array.isArray(v)) {
-                    if (!v.includes(normalize(r[c]))) return false;
+                    var cv = normalize(r[c]);
+                    if (!(v.includes(cv) || (cv === '' && v.includes('__empty__')))) return false;
                 } else {
                     if (!normalize(r[c]).toLowerCase().includes(v.toLowerCase())) return false;
                 }
@@ -3092,38 +3110,79 @@
     }
 
     function toggleColFilter(c, b) {
-        const popup = document.createElement('div'); popup.className = 'column-filter-popup';
-        popup.onclick = e => e.stopPropagation();
-        const selected = new Set(activeColumnFilters[c] || []);
-        var opts = _colValCache[c] ? Object.keys(_colValCache[c]).filter(Boolean).sort() : [];
-        function esc(v) { return v.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;'); }
-        function renderOpts(term) {
-            return opts.filter(o => !term || o.toLowerCase().includes(term)).slice(0, 80).map(o =>
-                `<label class="column-filter-option popup-option d-flex align-items-center gap-2 px-2 py-1" style="cursor:pointer">
-                    <input type="checkbox" value="${esc(o)}" ${selected.has(o)?'checked':''} onchange="toggleColFilterVal('${c}',this)">
-                    <span>${o}</span>
-                </label>`
-            ).join('');
+        document.querySelectorAll('.column-filter-popup').forEach(function(x) { x.remove(); });
+        var popup = document.createElement('div'); popup.className = 'column-filter-popup cfp';
+        popup.onclick = function(e) { e.stopPropagation(); };
+        // value -> number of shipments (whole dataset), plus how many are empty in this column
+        var counts = {}, emptyCount = 0;
+        for (var i = 0; i < fullDataset.length; i++) {
+            var val = normalize(fullDataset[i][c]);
+            if (!val) emptyCount++; else counts[val] = (counts[val] || 0) + 1;
         }
-        popup.innerHTML = `
-            <div class="d-flex gap-1 align-items-center p-2 border-bottom">
-                <input type="text" id="colFilterInput" class="form-control form-control-sm" style="font-size:0.75rem" placeholder="بحث...">
-                <button class="btn btn-sm text-purple border-0 flex-shrink-0" onclick="setColFilter('${c}',[]); this.closest('.column-filter-popup').remove()" style="font-size:1.1rem;line-height:1" title="مسح الفلتر"><i class="fas fa-times"></i></button>
-            </div>
-            <div style="max-height:200px;overflow-y:auto" id="colOptsList">${renderOpts('')}</div>`;
+        var opts = Object.keys(counts).sort(function(x, y) { return x.localeCompare(y, 'ar'); });
+        var MAX_SHOWN = 300;
+        popup.innerHTML =
+            '<div class="cfp-search"><input type="text" id="colFilterInput" class="form-control form-control-sm" placeholder="🔍 بحث في القيم..." autocomplete="off"></div>' +
+            '<div class="cfp-actions"><button type="button" class="cfp-all" data-act="all">✔ تحديد الكل</button><button type="button" class="cfp-none" data-act="none">✖ إزالة الكل</button></div>' +
+            '<div class="cfp-count" id="cfpCount"></div>' +
+            '<div class="cfp-list" id="colOptsList"></div>';
         document.body.appendChild(popup);
-        const rect = b.getBoundingClientRect();
-        popup.style.top = (rect.bottom + window.scrollY) + "px";
-        popup.style.left = rect.left + "px";
-        setTimeout(() => {
-            const inp = document.getElementById('colFilterInput');
-            if (inp) {
-                inp.focus();
-                inp.oninput = function() {
-                    document.getElementById('colOptsList').innerHTML = renderOpts(this.value);
-                };
-            }
-            window.addEventListener('click', () => popup.remove(), { once: true });
+        var listEl = popup.querySelector('#colOptsList'), countEl = popup.querySelector('#cfpCount'), inp = popup.querySelector('#colFilterInput');
+        var term = '';
+        function matching() {
+            var t = term.toLowerCase();
+            var list = opts.filter(function(o) { return !t || o.toLowerCase().indexOf(t) !== -1; });
+            var showEmpty = emptyCount > 0 && (!t || '(الفارغ)'.indexOf(t) !== -1 || 'فارغ'.indexOf(t) !== -1);
+            return { list: list, showEmpty: showEmpty };
+        }
+        function row(val, label, n, checked) {
+            return '<label class="column-filter-option popup-option cfp-row"><input type="checkbox" data-val="' + escapeHtml(val) + '"' + (checked ? ' checked' : '') + '>' +
+                   '<span class="cfp-label">' + escapeHtml(label) + '</span><span class="cfp-n">' + n + '</span></label>';
+        }
+        function render() {
+            var sel = new Set(activeColumnFilters[c] || []);
+            var m = matching(), html = '';
+            if (m.showEmpty) html += row('__empty__', '(الفارغ)', emptyCount, sel.has('__empty__'));
+            m.list.slice(0, MAX_SHOWN).forEach(function(o) { html += row(o, o, counts[o], sel.has(o)); });
+            if (m.list.length > MAX_SHOWN) html += '<div class="cfp-more">يوجد ' + (m.list.length - MAX_SHOWN) + ' قيمة أخرى، استخدم البحث لتضييق القائمة</div>';
+            if (!html) html = '<div class="cfp-more">لا توجد نتائج</div>';
+            listEl.innerHTML = html;
+            var total = opts.length + (emptyCount > 0 ? 1 : 0);
+            countEl.textContent = 'المختار: ' + sel.size + ' من ' + total + ' قيمة';
+        }
+        function commit(arr) {
+            if (arr.length) activeColumnFilters[c] = arr; else delete activeColumnFilters[c];
+            updateFilterTrigger(c);
+            applyFilters();   // instant: the table updates on every click
+            render();
+        }
+        listEl.addEventListener('change', function(e) {
+            var cb = e.target; if (!cb || cb.type !== 'checkbox') return;
+            var arr = (activeColumnFilters[c] || []).slice(), v = cb.getAttribute('data-val');
+            var i = arr.indexOf(v);
+            if (cb.checked && i === -1) arr.push(v); else if (!cb.checked && i > -1) arr.splice(i, 1);
+            commit(arr);
+        });
+        popup.querySelector('.cfp-actions').addEventListener('click', function(e) {
+            var act = e.target && e.target.getAttribute('data-act'); if (!act) return;
+            if (act === 'none') { commit([]); return; }
+            // select all: every value that matches the current search (all of them when the search is empty)
+            var m = matching(), arr = (activeColumnFilters[c] || []).slice();
+            m.list.forEach(function(o) { if (arr.indexOf(o) === -1) arr.push(o); });
+            if (m.showEmpty && arr.indexOf('__empty__') === -1) arr.push('__empty__');
+            commit(arr);
+        });
+        inp.addEventListener('input', function() { term = this.value; render(); });
+        render();
+        var rect = b.getBoundingClientRect();
+        var w = Math.min(260, window.innerWidth - 16);
+        popup.style.width = w + 'px';
+        var left = Math.min(Math.max(8, rect.right - w), window.innerWidth - w - 8);
+        popup.style.left = left + 'px';
+        popup.style.top = Math.min(rect.bottom + 4, Math.max(8, window.innerHeight - 380)) + 'px';
+        setTimeout(function() {
+            inp.focus();
+            window.addEventListener('click', function() { popup.remove(); }, { once: true });
         }, 0);
     }
     function updateFilterTrigger(c) {
