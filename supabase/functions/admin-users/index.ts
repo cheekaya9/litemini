@@ -43,6 +43,12 @@ Deno.serve(async (req) => {
   const password = body.password ? String(body.password) : "";
   const role = String(body.role ?? "user");
   const approved = body.approved === true;
+  // data-entry permissions (admins always have all three, so they are never edited here)
+  // only flags that were actually sent are changed (an older client that sends none leaves them as they are)
+  const perms: Record<string, boolean> = {};
+  for (const k of ["can_add", "can_edit", "can_delete"]) {
+    if (typeof body[k] === "boolean") perms[k] = body[k] as boolean;
+  }
   const id = body.id ? String(body.id) : "";
 
   if (action === "create") {
@@ -63,7 +69,7 @@ Deno.serve(async (req) => {
     }
     // the DB trigger created the profile row; now set role / approval
     const { error: upErr } = await admin.from("profiles")
-      .update({ username, phone, role, approved }).eq("id", created.user.id);
+      .update({ username, phone, role, approved, ...perms }).eq("id", created.user.id);
     if (upErr) {
       await admin.auth.admin.deleteUser(created.user.id);
       return json({ error: "فشل حفظ بيانات الحساب" }, 500);
@@ -92,7 +98,7 @@ Deno.serve(async (req) => {
       const dup = /already|registered|exists/i.test(error.message);
       return json({ error: dup ? "رقم الموبايل مسجل بالفعل" : "فشل تحديث الحساب" }, dup ? 409 : 400);
     }
-    const { error: upErr } = await admin.from("profiles").update({ username, phone, role, approved }).eq("id", id);
+    const { error: upErr } = await admin.from("profiles").update({ username, phone, role, approved, ...perms }).eq("id", id);
     if (upErr) return json({ error: "فشل حفظ بيانات الحساب" }, 500);
     return json({ ok: true });
   }

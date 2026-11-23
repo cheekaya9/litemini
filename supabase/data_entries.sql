@@ -82,3 +82,12 @@ create policy "de read"   on public.data_entries for select to authenticated usi
 create policy "de insert" on public.data_entries for insert to authenticated with check (public.my_can('add'));
 create policy "de update" on public.data_entries for update to authenticated using (public.my_can('edit')) with check (public.my_can('edit'));
 create policy "de delete" on public.data_entries for delete to authenticated using (public.my_can('delete'));
+
+-- 5) list of days (daily) that have entries; runs with the caller's rights, so RLS applies
+create or replace function public.data_entry_days()
+returns table(daily text, n bigint, last_at timestamptz)
+language sql stable security invoker set search_path = public as $$
+  select daily, count(*), max(created_at) from public.data_entries group by daily order by max(created_at) desc
+$$;
+revoke all on function public.data_entry_days() from public, anon;
+grant execute on function public.data_entry_days() to authenticated;

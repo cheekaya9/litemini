@@ -917,6 +917,30 @@
         .account-modal-card .form-check { margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem; }
         .account-modal-card .form-check input { width: auto; }
         .account-modal-card .modal-actions { display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1rem; }
+
+        /* Data Entry page */
+        .dataentry-section { padding: 0; }
+        .de-table { table-layout: auto; min-width: 1100px; }
+        .de-table td { font-size: 0.8rem; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .de-table td.de-wrap { white-space: normal; min-width: 160px; }
+        .de-table .de-actions { white-space: nowrap; }
+        .de-table tr.de-archived td { opacity: 0.55; }
+        .de-modal.account-modal-card { width: min(680px, 95%); max-height: 92vh; overflow-y: auto; }
+        .de-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.25rem 0.75rem; }
+        .de-grid .de-wide { grid-column: 1 / -1; }
+        .account-modal-card .form-group textarea { width: 100%; padding: 0.5rem 0.75rem; border: 1px solid #e2e8f0; border-radius: 10px; font-size: 0.85rem; resize: vertical; }
+        .account-modal-card .form-group textarea:focus { outline: none; border-color: var(--primary); }
+        .acc-perms { border: 1px solid #e2e8f0; border-radius: 12px; padding: 0.6rem 0.75rem; margin-bottom: 0.5rem; display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; align-items: center; }
+        .acc-perms-title { width: 100%; font-size: 0.75rem; font-weight: 800; color: #475569; }
+        .acc-perm { font-size: 0.8rem; font-weight: 600; display: inline-flex; align-items: center; gap: 0.35rem; cursor: pointer; margin: 0; }
+        .acc-perm input { width: auto; margin: 0; }
+        .acc-perms-note { width: 100%; font-size: 0.68rem; color: #94a3b8; }
+        .perm-badge { display: inline-block; font-size: 0.62rem; font-weight: 700; padding: 1px 7px; border-radius: 10px; background: #dbeafe; color: #1e40af; margin: 0 1px; }
+        .perm-badge.all { background: #d1fae5; color: #065f46; }
+        .acc-group-row { background: #f1f5f9; font-weight: 800; } .acc-group-row td { padding: 0.5rem 0.75rem !important; color: #475569 !important; text-align: right !important; }
+        .perm-none { font-size: 0.68rem; color: #94a3b8; }
+        @media (max-width: 640px) { .de-grid { grid-template-columns: 1fr; } }
+
         /* Daily filter dropdown */
         .daily-filter-select {
             border-radius: 10px; border: 1px solid #e2e8f0; padding: 4px 8px;
@@ -1232,6 +1256,12 @@
         .accounts-table-wrap .badge-pending { background: rgba(245,158,11,0.2); color: #fcd34d; }
         .account-modal-card { background: #1e293b; border: 1px solid #334155; }
         .account-modal-card h4 { color: #f8fafc; }
+        .account-modal-card .form-group textarea { background: #0f172a; color: #e2e8f0; border-color: #475569; }
+        .account-modal-card .form-group select { background: #0f172a; color: #e2e8f0; border-color: #475569; }
+        .acc-group-row { background: #0f172a; } .acc-group-row td { color: #94a3b8 !important; }
+        .acc-perms { border-color: #334155; } .acc-perms-title { color: #94a3b8; }
+        .perm-badge { background: rgba(59,130,246,0.2); color: #93c5fd; } .perm-badge.all { background: rgba(16,185,129,0.2); color: #6ee7b7; }
+
         .account-modal-card .form-group label { color: #94a3b8; }
         .account-modal-card .form-group input { background: #0f172a; color: #e2e8f0; border-color: #475569; }
         .account-modal-card .form-group input:focus { border-color: #0d6efd; }
@@ -1354,31 +1384,9 @@
                     </table>
                 </div>
         </section>
-            </div><!-- /shipmentsSection -->
-            <div id="accountsSection" class="accounts-section">
-                <div class="accounts-toolbar">
-                    <button class="btn btn-primary rounded-pill" onclick="showAccountModal()"><i class="fas fa-plus me-1"></i> إضافة حساب</button>
-                    <button class="btn btn-outline-secondary rounded-pill" onclick="fetchAccounts()"><i class="fas fa-sync me-1"></i> تحديث</button>
-                </div>
-                <div class="accounts-table-wrap">
-                    <table>
-                        <thead><tr>
-                            <th>#</th>
-                            <th>اسم المستخدم</th>
-                            <th>رقم الموبايل</th>
-                            <th>النوع</th>
-                            <th>الحالة</th>
-                            <th>الإجراءات</th>
-                        </tr></thead>
-                        <tbody id="accountsTableBody">
-                            <tr><td colspan="6" class="accounts-empty">جاري تحميل الحسابات...</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div><!-- /app-main-content -->
-    </div><!-- /app-layout -->
-</div>
+            </div><!-- /qr-workspace-body -->
+        </div><!-- /qr-workspace-card -->
+    </div><!-- /qrWorkspaceOverlay -->
 
 <!-- Bulk Update Modal -->
 <div id="bulkUpdateOverlay" class="dashboard-overlay" style="display:none;z-index:3000">
@@ -1616,7 +1624,8 @@
             <div class="tab-bar" id="tabBar" style="display:none">
                 <div class="tab-bar-tabs">
                     <button class="tab-btn active" data-tab="shipments"><i class="fas fa-truck me-1"></i> تسكين الشحنات</button>
-                    <button class="tab-btn" data-tab="accounts"><i class="fas fa-users-cog me-1"></i> إدارة الحسابات</button>
+                    <button class="tab-btn" data-tab="dataentry" id="tabDataEntry" style="display:none"><i class="fas fa-keyboard me-1"></i> داتا انتري</button>
+                    <button class="tab-btn" data-tab="accounts" id="tabAccounts" style="display:none"><i class="fas fa-users-cog me-1"></i> إدارة الحسابات</button>
                 </div>
                 <div class="d-flex gap-1 align-items-center">
                     <button id="errorLogBtn" class="btn btn-light btn-sm rounded-circle shadow-sm position-relative flex-shrink-0" title="سجل الأخطاء البرمجية">
@@ -1797,7 +1806,73 @@
             </div>
             <div class="table-resize-handle" id="tableResizeHandle"></div>
         </section>
-        </div>
+        </div><!-- /shipmentsSection -->
+            <div id="accountsSection" class="accounts-section">
+                <div class="accounts-toolbar">
+                    <button class="btn btn-primary rounded-pill" onclick="showAccountModal()"><i class="fas fa-plus me-1"></i> إضافة حساب</button>
+                    <button class="btn btn-outline-secondary rounded-pill" onclick="fetchAccounts()"><i class="fas fa-sync me-1"></i> تحديث</button>
+                </div>
+                <div class="accounts-table-wrap">
+                    <table>
+                        <thead><tr>
+                            <th>#</th>
+                            <th>اسم المستخدم</th>
+                            <th>رقم الموبايل</th>
+                            <th>النوع</th>
+                            <th>الحالة</th>
+                            <th>صلاحيات داتا انتري</th>
+                            <th>الإجراءات</th>
+                        </tr></thead>
+                        <tbody id="accountsTableBody">
+                            <tr><td colspan="7" class="accounts-empty">جاري تحميل الحسابات...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="dataEntrySection" class="dataentry-section" style="display:none">
+                <div class="toolbar-card">
+                    <div class="toolbar-stats-cards">
+                        <div class="toolbar-stat-card card-total">
+                            <i class="fas fa-list-ol toolbar-stat-icon"></i>
+                            <span class="toolbar-stat-label">عدد القيود</span>
+                            <strong id="deCount" class="toolbar-stat-value">0</strong>
+                        </div>
+                        <div class="toolbar-stat-card card-amount">
+                            <i class="fas fa-money-bill-wave toolbar-stat-icon"></i>
+                            <span class="toolbar-stat-label">إجمالي المبلغ</span>
+                            <strong id="deAmountSum" class="toolbar-stat-value">0</strong>
+                        </div>
+                        <div class="toolbar-stat-card card-net">
+                            <i class="fas fa-phone-slash toolbar-stat-icon"></i>
+                            <span class="toolbar-stat-label">بدون هاتف</span>
+                            <strong id="deNoPhone" class="toolbar-stat-value">0</strong>
+                        </div>
+                    </div>
+                </div>
+                <section class="shipments-table-wrapper">
+                    <div class="table-top-controls">
+                        <button id="deAddBtn" class="btn btn-primary btn-sm rounded-pill flex-shrink-0" style="display:none" onclick="deOpenForm()"><i class="fas fa-plus me-1"></i> إضافة</button>
+                        <button id="deReloadBtn" class="btn btn-outline-secondary btn-sm rounded-circle flex-shrink-0" title="تحديث من قاعدة البيانات" onclick="deReload()"><i class="fas fa-sync-alt"></i></button>
+                        <select id="deDaily" class="daily-filter-select" onchange="deDayChanged()"></select>
+                        <button id="deArchiveBtn" class="btn btn-sm rounded-pill border archive-filter-btn" title="تصفية الأرشيف" style="font-size:0.78rem;font-weight:600;" onclick="deCycleArchive()">نشطة</button>
+                        <input type="text" id="deSearch" class="form-control form-control-sm rounded-pill" placeholder="🔍 بحث سريع..." style="flex:1;min-width:0" oninput="deSearchChanged()">
+                    </div>
+                    <div class="p-2 border-top d-flex justify-content-between align-items-center">
+                        <div id="dePageMeta" class="text-muted small">الصفحة 0 من 0</div>
+                        <div id="dePager" class="d-flex gap-1"></div>
+                    </div>
+                    <div class="table-scroll-viewport">
+                        <table class="data-table de-table">
+                            <thead><tr>
+                                <th style="width:42px">#</th><th>اسم العميل</th><th>العنوان</th><th>الزون</th><th>المنتج</th><th>الهاتف</th><th>هاتف بديل</th><th>المبلغ</th><th>الراسل</th><th>الكود</th><th>ملاحظات</th><th style="width:110px">إجراءات</th>
+                            </tr></thead>
+                            <tbody id="deBody"><tr><td colspan="12" class="text-center py-5">جاري التحميل...</td></tr></tbody>
+                        </table>
+                    </div>
+                </section>
+            </div><!-- /dataEntrySection -->
+        </div><!-- /mainContentArea -->
     </div>
 
 
@@ -1886,6 +1961,30 @@
 </div>
 
 <!-- Account Modal -->
+<div id="deFormOverlay" class="account-modal-overlay">
+    <div class="account-modal-card de-modal">
+        <h4 id="deFormTitle">إضافة قيد جديد</h4>
+        <div class="de-grid">
+            <div class="form-group"><label>اليومية</label><input type="text" id="de_daily" list="deDailyList" placeholder="مثال: 23/8/2026" autocomplete="off"><datalist id="deDailyList"></datalist></div>
+            <div class="form-group"><label>اسم العميل</label><input type="text" id="de_customer_name"></div>
+            <div class="form-group"><label>العنوان</label><input type="text" id="de_address"></div>
+            <div class="form-group"><label>الزون</label><input type="text" id="de_zone"></div>
+            <div class="form-group"><label>المنتج</label><input type="text" id="de_product"></div>
+            <div class="form-group"><label>الهاتف</label><input type="tel" id="de_phone"></div>
+            <div class="form-group"><label>هاتف بديل</label><input type="tel" id="de_alt_phone"></div>
+            <div class="form-group"><label>المبلغ</label><input type="text" inputmode="decimal" id="de_amount"></div>
+            <div class="form-group"><label>الراسل</label><input type="text" id="de_sender"></div>
+            <div class="form-group"><label>كود الشحنة</label><input type="text" id="de_code"></div>
+            <div class="form-group de-wide"><label>ملاحظات</label><textarea id="de_notes" rows="2"></textarea></div>
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-outline-secondary rounded-pill" onclick="deCloseForm()">إلغاء</button>
+            <button class="btn btn-outline-primary rounded-pill" id="deSaveNewBtn" onclick="deSave(true)" style="display:none">حفظ وإضافة آخر</button>
+            <button class="btn btn-primary rounded-pill" id="deSaveBtn" onclick="deSave(false)">حفظ</button>
+        </div>
+    </div>
+</div>
+
 <div id="accountModalOverlay" class="account-modal-overlay">
     <div class="account-modal-card">
         <h4 id="accountModalTitle">إضافة حساب جديد</h4>
@@ -1911,6 +2010,13 @@
         <div class="form-check">
             <input type="checkbox" id="accApproved" checked>
             <label for="accApproved">مفعل</label>
+        </div>
+        <div class="acc-perms">
+            <div class="acc-perms-title"><i class="fas fa-keyboard me-1"></i> صلاحيات صفحة داتا انتري</div>
+            <label class="acc-perm"><input type="checkbox" id="accCanAdd"> إضافة</label>
+            <label class="acc-perm"><input type="checkbox" id="accCanEdit"> تعديل</label>
+            <label class="acc-perm"><input type="checkbox" id="accCanDelete"> حذف</label>
+            <div class="acc-perms-note">من لا يملك أي صلاحية يرى الصفحة للقراءة فقط (حساب مستخدم)، والمدير يملك الثلاث دائمًا.</div>
         </div>
         <div class="modal-actions">
             <button class="btn btn-outline-secondary rounded-pill" onclick="closeAccountModal()">إلغاء</button>
@@ -6504,6 +6610,17 @@
         }
     }
 
+    // who sees which tab: accounts = admin only; داتا انتري = admin, user, or anyone granted an entry permission
+    function dePerm(k) { return !!currentUser && (currentUser.role === 'admin' || currentUser['can_' + k] === true); }
+    function deCanView() { return !!currentUser && (currentUser.role === 'admin' || currentUser.role === 'user' || currentUser.can_add || currentUser.can_edit || currentUser.can_delete); }
+    function applyTabPermissions(user) {
+        var u = user || currentUser;
+        var isAdmin = !!u && u.role === 'admin';
+        var accTab = document.getElementById('tabAccounts'), deTab = document.getElementById('tabDataEntry');
+        if (accTab) accTab.style.display = isAdmin ? '' : 'none';
+        if (deTab) deTab.style.display = deCanView() ? '' : 'none';
+    }
+
     async function applyLoginSuccess(user) {
         document.getElementById('loginOverlay').classList.add('hidden');
         document.getElementById('loginBtn').disabled = false;
@@ -6511,6 +6628,7 @@
         document.getElementById('loggedInUserBadge').style.display = 'inline-flex';
         document.getElementById('loggedInUserName').textContent = user.username || user.email || 'مستخدم';
         document.getElementById('tabBar').style.display = 'flex';
+        applyTabPermissions(user);
         document.getElementById('logoutBtn').style.display = 'inline-block';
         if (user.username) {
             document.getElementById('loggedInUserName').textContent = user.username;
@@ -6556,6 +6674,185 @@
         });
     }
 
+
+    // ======================== DATA ENTRY (داتا انتري) ========================
+    var DE = { days: [], day: '', rows: [], page: 1, perPage: 50, archive: 'active', term: '', editId: null, loaded: false, timer: null };
+    var DE_FIELDS = ['customer_name', 'address', 'zone', 'product', 'phone', 'alt_phone', 'amount', 'sender', 'code', 'notes'];
+
+    function deArabicDigits(v) { return String(v == null ? '' : v).replace(/[٠-٩]/g, function(d) { return '٠١٢٣٤٥٦٧٨٩'.indexOf(d); }).replace(/[۰-۹]/g, function(d) { return '۰۱۲۳۴۵۶۷۸۹'.indexOf(d); }); }
+    function deToday() { var d = new Date(); return d.getDate() + '/' + (d.getMonth() + 1) + '/' + d.getFullYear(); }
+    function deToast(icon, text) { Swal.fire({ icon: icon, title: text, toast: true, position: 'top-end', showConfirmButton: false, timer: 2200 }); }
+
+    async function deApi(path, opts) {
+        opts = opts || {};
+        var h = Object.assign({}, SUPABASE_HEADERS, opts.headers || {});
+        var res = await fetch(SUPABASE_BASE + '/rest/v1/' + path, { method: opts.method || 'GET', headers: h, body: opts.body });
+        if (res.status === 401 || res.status === 403) throw new Error('ليست لديك صلاحية لهذه العملية');
+        if (!res.ok) { var t = await res.text().catch(function() { return ''; }); throw new Error('تعذر تنفيذ العملية (' + res.status + ')' + (t && t.length < 160 ? ': ' + t : '')); }
+        return res;
+    }
+
+    async function deOpen() {
+        // refresh own permissions first: the admin may have changed them since this user logged in
+        try {
+            var fresh = await fetchMyProfile(currentUser.id);
+            if (fresh) { currentUser = fresh; localStorage.setItem('current_user', JSON.stringify(fresh)); applyTabPermissions(fresh); }
+        } catch (e) { /* keep what we have */ }
+        document.getElementById('deAddBtn').style.display = dePerm('add') ? '' : 'none';
+        if (!DE.loaded) { DE.loaded = true; await deLoadDays(); } else { deRender(); }
+    }
+
+    async function deLoadDays(keep) {
+        var sel = document.getElementById('deDaily');
+        try {
+            var res = await deApi('rpc/data_entry_days', { method: 'POST', body: '{}' });
+            DE.days = await res.json();
+        } catch (e) { DE.days = []; document.getElementById('deBody').innerHTML = '<tr><td colspan="12" class="text-center py-5" style="color:#ef4444">' + escapeHtml(e.message) + '</td></tr>'; return; }
+        sel.innerHTML = DE.days.map(function(d) { return '<option value="' + escapeHtml(d.daily) + '">' + escapeHtml(d.daily) + ' (' + d.n + ')</option>'; }).join('');
+        document.getElementById('deDailyList').innerHTML = DE.days.map(function(d) { return '<option value="' + escapeHtml(d.daily) + '">'; }).join('');
+        if (!DE.days.length) { DE.day = ''; DE.rows = []; deRender(); return; }
+        var want = keep && DE.days.some(function(d) { return d.daily === keep; }) ? keep : DE.days[0].daily;
+        sel.value = want; DE.day = want;
+        await deLoadRows();
+    }
+
+    async function deLoadRows() {
+        var body = document.getElementById('deBody');
+        if (!DE.day) { DE.rows = []; deRender(); return; }
+        body.innerHTML = '<tr><td colspan="12" class="text-center py-5">جاري التحميل...</td></tr>';
+        var all = [], from = 0, step = 1000;
+        try {
+            for (;;) {
+                var res = await deApi('data_entries?daily=eq.' + encodeURIComponent(DE.day) + '&select=*&order=created_at.asc,id.asc',
+                    { headers: { Range: from + '-' + (from + step - 1), 'Range-Unit': 'items' } });
+                var part = await res.json();
+                all = all.concat(part);
+                if (part.length < step) break;
+                from += step;
+            }
+        } catch (e) { body.innerHTML = '<tr><td colspan="12" class="text-center py-5" style="color:#ef4444">' + escapeHtml(e.message) + '</td></tr>'; return; }
+        DE.rows = all; DE.page = 1; deRender();
+    }
+
+    function deVisibleRows() {
+        var t = DE.term.trim().toLowerCase();
+        return DE.rows.filter(function(r) {
+            if (DE.archive === 'active' && r.archived) return false;
+            if (DE.archive === 'archived' && !r.archived) return false;
+            if (!t) return true;
+            return DE_FIELDS.some(function(f) { return r[f] != null && String(r[f]).toLowerCase().indexOf(t) !== -1; });
+        });
+    }
+
+    function deRender() {
+        var rows = deVisibleRows(), total = rows.length;
+        var pages = Math.max(1, Math.ceil(total / DE.perPage));
+        if (DE.page > pages) DE.page = pages;
+        var slice = rows.slice((DE.page - 1) * DE.perPage, DE.page * DE.perPage);
+        var canEdit = dePerm('edit'), canDel = dePerm('delete');
+        var html = '';
+        slice.forEach(function(r, i) {
+            var acts = '';
+            if (canEdit) acts += '<button class="btn btn-sm btn-outline-primary rounded-pill" data-de="edit" data-id="' + r.id + '" title="تعديل"><i class="fas fa-edit"></i></button> ' +
+                '<button class="btn btn-sm btn-outline-secondary rounded-pill" data-de="archive" data-id="' + r.id + '" title="' + (r.archived ? 'إلغاء الأرشفة' : 'أرشفة') + '"><i class="fas fa-' + (r.archived ? 'box-open' : 'archive') + '"></i></button> ';
+            if (canDel) acts += '<button class="btn btn-sm btn-outline-danger rounded-pill" data-de="delete" data-id="' + r.id + '" title="حذف"><i class="fas fa-trash"></i></button>';
+            if (!acts) acts = '<span class="perm-none">—</span>';
+            html += '<tr class="' + (r.archived ? 'de-archived' : '') + '"><td>' + ((DE.page - 1) * DE.perPage + i + 1) + '</td>' +
+                '<td>' + escapeHtml(r.customer_name) + '</td><td class="de-wrap">' + escapeHtml(r.address) + '</td><td>' + escapeHtml(r.zone) + '</td>' +
+                '<td>' + escapeHtml(r.product) + '</td><td>' + escapeHtml(r.phone) + '</td><td>' + escapeHtml(r.alt_phone) + '</td>' +
+                '<td>' + (r.amount == null ? '' : escapeHtml(r.amount)) + '</td><td>' + escapeHtml(r.sender) + '</td><td>' + escapeHtml(r.code) + '</td>' +
+                '<td class="de-wrap">' + escapeHtml(r.notes) + '</td><td class="de-actions">' + acts + '</td></tr>';
+        });
+        if (!html) html = '<tr><td colspan="12" class="text-center py-5 text-muted">' + (DE.day ? 'لا توجد قيود' : 'لا توجد أيام بعد' + (dePerm('add') ? '، اضغط «إضافة» لبدء أول يومية' : '')) + '</td></tr>';
+        document.getElementById('deBody').innerHTML = html;
+        document.getElementById('deCount').textContent = total;
+        document.getElementById('deAmountSum').textContent = rows.reduce(function(a, r) { return a + (Number(r.amount) || 0); }, 0).toLocaleString('en-US');
+        document.getElementById('deNoPhone').textContent = rows.filter(function(r) { return !String(r.phone || '').trim(); }).length;
+        document.getElementById('dePageMeta').textContent = 'الصفحة ' + DE.page + ' من ' + pages + ' — ' + total + ' قيد';
+        var pg = '';
+        if (pages > 1) {
+            pg += '<button class="btn btn-sm btn-outline-secondary rounded-pill" data-pg="' + Math.max(1, DE.page - 1) + '"' + (DE.page === 1 ? ' disabled' : '') + '>السابق</button>';
+            pg += '<button class="btn btn-sm btn-outline-secondary rounded-pill" data-pg="' + Math.min(pages, DE.page + 1) + '"' + (DE.page === pages ? ' disabled' : '') + '>التالي</button>';
+        }
+        document.getElementById('dePager').innerHTML = pg;
+        document.getElementById('deArchiveBtn').textContent = DE.archive === 'active' ? 'نشطة' : DE.archive === 'archived' ? 'مؤرشفة' : 'الكل';
+        document.getElementById('deAddBtn').style.display = dePerm('add') ? '' : 'none';
+    }
+
+    function deDayChanged() { DE.day = document.getElementById('deDaily').value; deLoadRows(); }
+    function deReload() { deLoadDays(DE.day); }
+    function deSearchChanged() { clearTimeout(DE.timer); DE.timer = setTimeout(function() { DE.term = document.getElementById('deSearch').value; DE.page = 1; deRender(); }, 150); }
+    function deCycleArchive() { DE.archive = DE.archive === 'active' ? 'archived' : DE.archive === 'archived' ? 'all' : 'active'; DE.page = 1; deRender(); }
+
+    function deOpenForm(row) {
+        if (row ? !dePerm('edit') : !dePerm('add')) return deToast('error', 'ليست لديك صلاحية');
+        DE.editId = row ? row.id : null;
+        document.getElementById('deFormTitle').textContent = row ? 'تعديل القيد' : 'إضافة قيد جديد';
+        document.getElementById('de_daily').value = row ? row.daily : (DE.day || deToday());
+        DE_FIELDS.forEach(function(f) { document.getElementById('de_' + f).value = row && row[f] != null ? row[f] : ''; });
+        document.getElementById('deSaveNewBtn').style.display = row ? 'none' : '';
+        document.getElementById('deFormOverlay').classList.add('show');
+        document.getElementById('de_customer_name').focus();
+    }
+    function deCloseForm() { document.getElementById('deFormOverlay').classList.remove('show'); }
+
+    async function deSave(again) {
+        var daily = document.getElementById('de_daily').value.trim();
+        if (!daily) return Swal.fire({ icon: 'warning', title: 'تنبيه', text: 'الرجاء إدخال اليومية' });
+        var rec = { daily: daily };
+        DE_FIELDS.forEach(function(f) { var v = document.getElementById('de_' + f).value.trim(); rec[f] = v === '' ? null : v; });
+        ['phone', 'alt_phone'].forEach(function(f) { if (rec[f]) rec[f] = deArabicDigits(rec[f]).replace(/\s+/g, ''); });
+        if (rec.amount != null) {
+            var n = Number(deArabicDigits(rec.amount).replace(/,/g, '').replace('٫', '.'));
+            if (!isFinite(n)) return Swal.fire({ icon: 'warning', title: 'تنبيه', text: 'المبلغ يجب أن يكون رقمًا' });
+            rec.amount = n;
+        }
+        var btn = document.getElementById('deSaveBtn'); btn.disabled = true;
+        try {
+            if (DE.editId) {
+                await deApi('data_entries?id=eq.' + encodeURIComponent(DE.editId), { method: 'PATCH', body: JSON.stringify(rec), headers: { Prefer: 'return=minimal' } });
+            } else {
+                await deApi('data_entries', { method: 'POST', body: JSON.stringify(rec), headers: { Prefer: 'return=minimal' } });
+            }
+            var wasEdit = !!DE.editId;
+            if (again && !wasEdit) {
+                ['customer_name', 'address', 'product', 'phone', 'alt_phone', 'amount', 'code', 'notes'].forEach(function(f) { document.getElementById('de_' + f).value = ''; });
+                document.getElementById('de_customer_name').focus();
+            } else { deCloseForm(); }
+            deToast('success', wasEdit ? 'تم حفظ التعديل' : 'تمت الإضافة');
+            await deLoadDays(daily);
+        } catch (e) { Swal.fire({ icon: 'error', title: 'خطأ', text: e.message }); }
+        btn.disabled = false;
+    }
+
+    async function deToggleArchive(row) {
+        try {
+            await deApi('data_entries?id=eq.' + encodeURIComponent(row.id), { method: 'PATCH', body: JSON.stringify({ archived: !row.archived }), headers: { Prefer: 'return=minimal' } });
+            row.archived = !row.archived; deRender();
+        } catch (e) { Swal.fire({ icon: 'error', title: 'خطأ', text: e.message }); }
+    }
+
+    async function deDelete(row) {
+        var ok = await Swal.fire({ icon: 'warning', title: 'حذف القيد؟', text: (row.customer_name || row.code || '') + ' — لا يمكن التراجع', showCancelButton: true, confirmButtonText: 'حذف', cancelButtonText: 'إلغاء', confirmButtonColor: '#dc2626' });
+        if (!ok.isConfirmed) return;
+        try {
+            await deApi('data_entries?id=eq.' + encodeURIComponent(row.id), { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
+            deToast('success', 'تم الحذف');
+            await deLoadDays(DE.day);
+        } catch (e) { Swal.fire({ icon: 'error', title: 'خطأ', text: e.message }); }
+    }
+
+    document.getElementById('deBody').addEventListener('click', function(e) {
+        var b = e.target.closest('button[data-de]'); if (!b) return;
+        var row = DE.rows.find(function(r) { return r.id === b.getAttribute('data-id'); }); if (!row) return;
+        var act = b.getAttribute('data-de');
+        if (act === 'edit') deOpenForm(row); else if (act === 'archive') deToggleArchive(row); else if (act === 'delete') deDelete(row);
+    });
+    document.getElementById('dePager').addEventListener('click', function(e) {
+        var b = e.target.closest('button[data-pg]'); if (!b) return;
+        DE.page = Number(b.getAttribute('data-pg')); deRender();
+    });
+
     // ======================== ACCOUNTS MANAGEMENT ========================
     let _editAccountId = null;
 
@@ -6566,19 +6863,31 @@
             var tab = btn.dataset.tab;
             document.getElementById('shipmentsSection').style.display = tab === 'shipments' ? 'block' : 'none';
             document.getElementById('accountsSection').style.display = tab === 'accounts' ? 'block' : 'none';
+            document.getElementById('dataEntrySection').style.display = tab === 'dataentry' ? 'block' : 'none';
+            document.getElementById('filterSidebar').style.display = tab === 'shipments' ? '' : 'none';
             if (tab === 'accounts') fetchAccounts();
+            if (tab === 'dataentry') deOpen();
         };
     });
 
+    function permBadges(u) {
+        if (u.role === 'admin') return '<span class="perm-badge all">كاملة</span>';
+        var b = '';
+        if (u.can_add) b += '<span class="perm-badge">إضافة</span>';
+        if (u.can_edit) b += '<span class="perm-badge">تعديل</span>';
+        if (u.can_delete) b += '<span class="perm-badge">حذف</span>';
+        return b || '<span class="perm-none">قراءة فقط</span>';
+    }
+
     async function fetchAccounts() {
         var tbody = document.getElementById('accountsTableBody');
-        tbody.innerHTML = '<tr><td colspan="6" class="accounts-empty">جاري التحميل...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="accounts-empty">جاري التحميل...</td></tr>';
         try {
             var res = await fetch(SUPABASE_BASE + '/rest/v1/profiles?select=*&order=created_at', { headers: SUPABASE_HEADERS });
             if (!res.ok) throw new Error('فشل تحميل الحسابات');
             var users = await res.json();
             if (!users || !users.length) {
-                tbody.innerHTML = '<tr><td colspan="6" class="accounts-empty">لا توجد حسابات بعد</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" class="accounts-empty">لا توجد حسابات بعد</td></tr>';
                 return;
             }
             var roleOrder = { admin: 0, user: 1, rep: 2 };
@@ -6596,7 +6905,7 @@
             var idx = 0;
             sortedRoles.forEach(function(role) {
                 var list = groups[role];
-                html += '<tr style="background:#f1f5f9;font-weight:800"><td colspan="6" style="padding:0.5rem 0.75rem;color:#475569">' + (roleNames[role] || role) + ' (' + list.length + ')</td></tr>';
+                html += '<tr class="acc-group-row"><td colspan="7">' + (roleNames[role] || role) + ' (' + list.length + ')</td></tr>';
                 list.forEach(function(u) {
                     idx++;
                     var approved = u.approved;
@@ -6612,6 +6921,7 @@
                         '<td>' + escapeHtml(u.phone || '') + '</td>' +
                         '<td>' + (roleNames[u.role] || escapeHtml(u.role || '')) + '</td>' +
                         '<td>' + badge + '</td>' +
+                        '<td>' + permBadges(u) + '</td>' +
                         '<td style="white-space:nowrap">' +
                         (isAdmin ? '<span class="badge bg-secondary" style="font-size:0.65rem">غير قابل للتعديل</span>' : approveBtn + ' ' +
                         '<button class="btn btn-sm btn-outline-primary rounded-pill" data-action="edit" data-id="' + uid + '" title="تعديل"><i class="fas fa-edit"></i></button> ' +
@@ -6621,7 +6931,7 @@
             });
             tbody.innerHTML = html;
         } catch (err) {
-            tbody.innerHTML = '<tr><td colspan="6" class="accounts-empty" style="color:#ef4444">خطأ: ' + escapeHtml(err.message) + '</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" class="accounts-empty" style="color:#ef4444">خطأ: ' + escapeHtml(err.message) + '</td></tr>';
         }
     }
 
@@ -6630,11 +6940,13 @@
         document.getElementById('accountModalTitle').textContent = data ? 'تعديل الحساب' : 'إضافة حساب جديد';
         document.getElementById('accUsername').value = data ? (data.username || '') : '';
         document.getElementById('accPhone').value = data ? (data.phone || '') : '';
-        document.getElementById('accEmail').value = data ? (data.email || '') : '';
         document.getElementById('accPassword').value = '';
         document.getElementById('accApproved').checked = data ? !!data.approved : true;
         document.getElementById('accPasswordLabel').textContent = data ? 'كلمة المرور (اترك فارغاً إن لم ترد التغيير)' : 'كلمة المرور';
         document.getElementById('accRole').value = data ? (data.role || 'user') : 'user';
+        document.getElementById('accCanAdd').checked = data ? !!data.can_add : false;
+        document.getElementById('accCanEdit').checked = data ? !!data.can_edit : false;
+        document.getElementById('accCanDelete').checked = data ? !!data.can_delete : false;
         document.getElementById('accountModalOverlay').classList.add('show');
         document.getElementById('accUsername').focus();
     }
@@ -6673,7 +6985,8 @@
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
         var wasEdit = !!_editAccountId;
         try {
-            var body = { action: wasEdit ? 'update' : 'create', id: _editAccountId, username: username, phone: phone, approved: approved, role: role };
+            var body = { action: wasEdit ? 'update' : 'create', id: _editAccountId, username: username, phone: phone, approved: approved, role: role,
+                can_add: document.getElementById('accCanAdd').checked, can_edit: document.getElementById('accCanEdit').checked, can_delete: document.getElementById('accCanDelete').checked };
             if (password) body.password = password;
             var res = await fetch(SUPABASE_BASE + '/functions/v1/admin-users', {
                 method: 'POST', headers: SUPABASE_HEADERS, body: JSON.stringify(body)
