@@ -918,6 +918,10 @@
         .account-modal-card .form-check input { width: auto; }
         .account-modal-card .modal-actions { display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1rem; }
 
+        /* While shipments are selected: everything outside the bulk bar is locked */
+        body.sel-lock .tab-btn, body.sel-lock #tabBar .btn, body.sel-lock .toolbar-stat-card, body.sel-lock #filterSidebar button { opacity: .55; cursor: not-allowed; }
+        @keyframes selShake { 0%,100% { transform: translateX(-50%); } 25% { transform: translateX(calc(-50% - 8px)); } 75% { transform: translateX(calc(-50% + 8px)); } }
+        #bulkActionBar.shake { animation: selShake .35s; }
         /* Account menu (header) */
         .acc-menu-wrap { position: relative; }
         .acc-menu { display: none; position: absolute; top: calc(100% + 8px); left: 0; min-width: 190px; background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 6px; box-shadow: 0 12px 30px rgba(0,0,0,0.18); z-index: 3000; }
@@ -1862,9 +1866,8 @@
                     <i class="fas fa-check-double me-2"></i>
                     <span class="fw-bold" id="selectedCountBadge">0</span>
                 </div>
-                <div class="d-none d-md-block">
-                    <span class="fw-bold small text-muted">شحنات معلقة</span>
-                    <button class="btn btn-outline-primary btn-sm rounded-pill mx-2" onclick="copySelectedRows()">نسخ المحدد</button>
+                <div class="d-flex align-items-center gap-2">
+                    <button class="btn btn-outline-primary btn-sm rounded-pill" onclick="copySelectedRows()">نسخ المحدد</button>
                     <button class="btn btn-link btn-sm text-primary p-0 text-decoration-none fw-bold" onclick="clearSelection()">إلغاء الكل</button>
                 </div>
             </div>
@@ -3470,6 +3473,7 @@
         const badge = document.getElementById('selectedCountBadge');
         const count = selectedIds.size;
         
+        document.body.classList.toggle('sel-lock', count > 0);
         if (count > 0) {
             bar.style.display = 'block';
             badge.innerText = count;
@@ -3481,6 +3485,21 @@
             bar.style.display = 'none';
         }
     }
+
+    // ---- selection lock: with shipments selected, only the bulk bar / row checkboxes work ----
+    document.addEventListener('click', function(ev) {
+        if (!document.body.classList.contains('sel-lock')) return;
+        var tg = ev.target; if (!tg || !tg.closest) return;
+        if (tg.closest('#bulkActionBar, .swal2-container, .row-checkbox, #selectAllCheckbox')) return;
+        if (!tg.closest('button, a, .tab-btn, [role="button"], select, summary, .toolbar-stat-card, label')) return;
+        ev.preventDefault(); ev.stopPropagation(); ev.stopImmediatePropagation();
+        var bar = document.getElementById('bulkActionBar');
+        bar.classList.remove('shake'); void bar.offsetWidth; bar.classList.add('shake');
+        Swal.fire({ toast: true, position: 'top', icon: 'info', title: 'ألغِ تحديد الشحنات أولاً (إلغاء الكل) للانتقال أو استخدام أزرار أخرى', showConfirmButton: false, timer: 2200 });
+    }, true);
+    document.addEventListener('keydown', function(ev) {
+        if (ev.key === 'Escape' && document.body.classList.contains('sel-lock') && !document.querySelector('.swal2-container')) clearSelection();
+    });
 
     function toggleBulkStatusMenu(e) {
         e.stopPropagation();
