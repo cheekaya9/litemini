@@ -768,6 +768,11 @@ html.ro #roBanner{display:block}
 html.na [onclick="fi.click()"],html.na [onclick^="paste"],html.na [onclick^="gPasteAsk"],html.na [onclick^="qUp"],html.na [onclick="$('fq').click()"],html.na [onclick="fr.click()"],html.na details.w1,html.na details:has([onclick="add()"]){display:none!important}
 html.nd #ddel,html.nd [onclick^="delSel"],html.nd [onclick^="sgDelBtn"]{display:none!important}
 html.ne [onclick^="runBtn"],html.ne [onclick="mv()"],html.ne [onclick^="sgEditBtn"],html.ne [onclick^="resetMaps"]{display:none!important}
+
+.mph{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.xb{all:unset;box-sizing:border-box;width:36px;height:36px;border-radius:50%;border:1.5px solid var(--b);color:var(--t);display:grid;place-items:center;cursor:pointer;font-size:16px;font-weight:700;flex:none;transition:all .2s}
+.xb{background:transparent!important;color:var(--t)!important;border:1.5px solid var(--b)!important;box-shadow:none!important;padding:0!important}.xb:hover{background:var(--b)!important}.xb:focus-visible{outline:2px solid #3b82f6}
+.dlg.rsz{resize:both;overflow:auto;min-width:420px;min-height:260px;max-width:96vw;max-height:94vh}
 </style>
 </head><body>
 <div id="roBanner">👁 عرض فقط — ليس لديك صلاحية التعديل. اطلب الصلاحية من المدير.</div>
@@ -958,7 +963,7 @@ function panel(){const o=$('mp');if(!PF.length){o.innerHTML='';return}
  const p=PF[0];if(isSh(p)&&p.d.map.send==null)detSend(p);const n=Math.max(...p.d.D.slice(0,20).map(r=>r.length),(p.d.hd||[]).length),col=j=>XLSX.utils.encode_col(j)+': '+e(cl(p.d.hd[j]||'').slice(0,32)||'(بدون اسم)');
  const sel=f=>'<select id="s0'+f+'" style="font-weight:bold" onchange="smpU(\''+f+'\')"><option value="">— بدون —</option>'+[...Array(n).keys()].map(j=>'<option value="'+j+'"'+(p.d.map[f]===j?' selected':'')+'>'+col(j)+'</option>').join('')+'</select>';
  const hr=['<option value="a"'+(p.hv=='a'?' selected':'')+'>تلقائي</option>','<option value="-1"'+(p.hv=='-1'?' selected':'')+'>بدون رأس جدول</option>'].concat([0,1,2,3,4].map(i=>'<option value="'+i+'"'+(p.hv==String(i)?' selected':'')+'>الصف '+(i+1)+'</option>')).join('');
- setTimeout(()=>{warnU();pvTop()},0);o.innerHTML='<div class="ov"><div class="dlg"><h3>تحديد الأعمدة: '+e(p.f)+'</h3><div class="mpbar"><button onclick="goImp()">استيراد</button><button class="s" onclick="PF.shift();panel()">إلغاء</button><span class="mpcard">📦 عدد الشحنات: <b>'+p.d.D.length+'</b></span><label class="swl" title="يحفظ الأعمدة اللي اخترتها ويستورد الملفات بنفس الشكل تلقائي المرة الجاية"><span class="sw"><input type="checkbox" id="aut"'+(p.auto?' checked':'')+'><i></i></span> ⚡ استيراد تلقائي المرة الجاية</label><span>الراسل: <input id="sd0" value="'+e(p.snd)+'"></span><span>رأس الجدول: <select id="hr0" onchange="reHr()">'+hr+'</select></span></div>'
+ setTimeout(()=>{warnU();pvTop();rszInit()},0);o.innerHTML='<div class="ov"><div class="dlg rsz" id="impdlg"><h3 class="mph"><span>تحديد الأعمدة: '+e(p.f)+'</span><button class="xb" onclick="closeImp()" title="إغلاق" aria-label="إغلاق">✕</button></h3><div class="mpbar"><button onclick="goImp()">استيراد</button><button class="s" onclick="closeImp()">إلغاء</button><span class="mpcard">📦 عدد الشحنات: <b>'+p.d.D.length+'</b></span><label class="swl" title="يحفظ الأعمدة اللي اخترتها ويستورد الملفات بنفس الشكل تلقائي المرة الجاية"><span class="sw"><input type="checkbox" id="aut"'+(p.auto?' checked':'')+'><i></i></span> ⚡ استيراد تلقائي المرة الجاية</label><span>الراسل: <input id="sd0" value="'+e(p.snd)+'"></span><span>رأس الجدول: <select id="hr0" onchange="reHr()">'+hr+'</select></span></div>'
  +'<div class="mpf">'+PO.map(f=>'<div class="fr"><label class="fl">'+FN[f]+'</label>'+sel(f)+' <small id="x0'+f+'">'+e(smp(p,p.d.map[f]))+'</small></div>').join('')+(isSh(p)?'<div class="fr"><label class="fl">الراسل (من عمود في الملف)</label>'+sel('send')+' <small id="x0send">'+e(smp(p,p.d.map.send))+'</small></div>':'')+'</div><div id="wn0"></div>'
  +'<div id="pvt" class="pvt"><div></div></div><div class="pvc"><div class="pvw" id="pv0">'+pvh(p)+'</div></div>'
  +'<div style="font-size:12px;opacity:.8">الأعمدة اللي تختارها بتتحفظ دايماً لنفس الشكل. زر ⚡ بيخلّي الملفات بنفس الشكل تتستورد من غير نافذة (ترجّعها من "نسيان إعدادات الأعمدة").'+(p.auto?' <b>الاستيراد التلقائي مفعّل لهذا الشكل حالياً.</b>':'')+'</div>'
@@ -1803,7 +1808,17 @@ async function spDraw(){const el=document.getElementById('spb');if(!el)return;
 async function verifyDay(){const c=await spCalc();if(c.ok!=c.tot||c.del||SY.dirty.has(DAY)){SY.vok=null;return}
  const r=await sbj('/rest/v1/zone_shipments?select=id&day=eq.'+encodeURIComponent(DAY),{headers:{Prefer:'count=exact',Range:'0-0','Range-Unit':'items'}}),cr=r.headers.get('content-range'),m=cr&&/\/(\d+)$/.exec(cr);
  SY.vok=m&&+m[1]==c.tot?{day:DAY,tot:c.tot}:null}
-window.addEventListener('beforeunload',ev=>{const b=document.getElementById('spb');if(SES&&b&&b.style.display!='none'&&!b.classList.contains('ok')&&(SY.dirty.size||b.className.indexOf('er')>0)){ev.preventDefault();ev.returnValue=''}});
+/* ---- unified confirm (uses the host app's dialog when embedded) ---- */
+async function askC(title,html,ok,no,danger){if(BR&&BR.ask){try{return await BR.ask({title,html,ok,no,danger})}catch(x){}}return confirm(title+'\n\n'+String(html).replace(/<[^>]+>/g,''))}
+async function closeImp(){const p=PF[0];if(!p)return;const n=p.d&&p.d.D?p.d.D.length:0;
+ if(await askC('إغلاق نافذة الاستيراد؟','سيتم إلغاء استيراد الملف «'+e(p.f)+'» ('+n+' شحنة) ولن يُحفظ منه شيء.','موافق، أغلق','إلغاء، ابقَ هنا',true)){PF.shift();panel()}}
+function rszInit(){const d=$('impdlg');if(!d)return;try{const z=JSON.parse(localStorage.getItem('zdlg')||'null');if(z&&z.w>=420&&z.h>=260){d.style.width=Math.min(z.w,innerWidth*.96)+'px';d.style.height=Math.min(z.h,innerHeight*.94)+'px'}}catch(x){}
+ if(window.ResizeObserver){let t0=0;new ResizeObserver(()=>{if(!t0){t0=1;return}clearTimeout(rszInit.t);rszInit.t=setTimeout(()=>{try{localStorage.setItem('zdlg',JSON.stringify({w:Math.round(d.offsetWidth),h:Math.round(d.offsetHeight)}))}catch(x){}},300)}).observe(d)}}
+/* ---- never lose unsaved work on reload / close ---- */
+function zoneUnsaved(){let n=0;try{n=SY.dirty.size+SY.dd.size+Object.keys(SY.q).length+(PF.length?1:0)}catch(x){}return n}
+window.zoneUnsaved=zoneUnsaved;
+window.addEventListener('beforeunload',ev=>{if(BR&&BR.skipGuard&&BR.skipGuard())return;if(zoneUnsaved()>0){ev.preventDefault();ev.returnValue=''}});
+document.addEventListener('keydown',ev=>{const k=(ev.key||'').toLowerCase();if(k==='f5'||((ev.ctrlKey||ev.metaKey)&&k==='r')){if(zoneUnsaved()>0){ev.preventDefault();ev.stopPropagation();if(BR&&BR.confirmReload)BR.confirmReload();else if(confirm('🛑 يوجد تعديلات لم تُحفظ بعد. تحديث الصفحة قد يضيعها. تحديث رغم ذلك؟'))location.reload()}}},true);
 
 /* --- the sync loop --- */
 async function verGuard(){if(Date.now()-SY.vg<60000)return;const r=await sbj('/rest/v1/zone_settings?select=value&key=eq.min_ver'),a=await r.json(),mv=a[0]?+a[0].value||0:0;

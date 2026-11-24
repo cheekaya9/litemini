@@ -6618,6 +6618,12 @@
             }
             return { access_token: _session.access_token, exp: _sessionAt + 55 * 60 * 1000, uid: currentUser.id, email: currentUser.phone ? phoneToEmail(currentUser.phone) : (currentUser.username || '') };
         },
+        ask: async function(o) {
+            var r = await Swal.fire({ icon: o.danger ? 'warning' : 'question', title: o.title, html: o.html, showCancelButton: true, confirmButtonText: o.ok || 'موافق', cancelButtonText: o.no || 'إلغاء', reverseButtons: true, focusCancel: true });
+            return !!r.isConfirmed;
+        },
+        skipGuard: function() { return !!window.__zoneSkip; },
+        confirmReload: function() { deConfirmReload(); },
         caps: function() { return { a: dePerm('add'), e: dePerm('edit'), d: dePerm('delete') }; },
         theme: function() { var d = document.getElementById('darkTheme'); return (d && !d.disabled) ? 'dark' : 'light'; },
         authLost: function(msg) {
@@ -6629,6 +6635,20 @@
         try { var w = document.getElementById('zoneFrame').contentWindow; if (w && typeof w[fn] === 'function') w[fn](window.zoneBridge.theme()); } catch (e) {}
     }
     new MutationObserver(function() { deZoneCall('setZoneTheme'); }).observe(document.body, { attributes: true, attributeFilter: ['data-bs-theme'] });
+
+    function deUnsaved() {
+        try { var w = document.getElementById('zoneFrame').contentWindow; return (w && typeof w.zoneUnsaved === 'function') ? w.zoneUnsaved() : 0; } catch (e) { return 0; }
+    }
+    async function deConfirmReload() {
+        var n = deUnsaved();
+        var r = await Swal.fire({ icon: 'warning', title: '🛑 تحذير: لديك تعديلات لم تُحفظ بعد', html: 'يوجد ' + n + ' عنصر (يومية / إعدادات / ملف استيراد مفتوح) لم يكتمل حفظه أو رفعه للسيرفر، وقد تضيع إذا حدّثت الصفحة الآن.', showCancelButton: true, confirmButtonText: 'تحديث رغم ذلك', cancelButtonText: 'البقاء في الصفحة', reverseButtons: true, focusCancel: true });
+        if (r.isConfirmed) { window.__zoneSkip = true; location.reload(); }
+    }
+    window.addEventListener('beforeunload', function(ev) { if (!window.__zoneSkip && deUnsaved() > 0) { ev.preventDefault(); ev.returnValue = ''; } });
+    document.addEventListener('keydown', function(ev) {
+        var k = (ev.key || '').toLowerCase();
+        if ((k === 'f5' || ((ev.ctrlKey || ev.metaKey) && k === 'r')) && deUnsaved() > 0) { ev.preventDefault(); deConfirmReload(); }
+    }, true);
 
     function deReset() {
         ZB.loaded = false;
