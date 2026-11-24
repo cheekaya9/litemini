@@ -37,13 +37,13 @@ tr.sl td{outline-color:var(--g)}
 #selbar{border-radius:18px;border:1px solid rgba(59,130,246,.45);box-shadow:0 8px 28px rgba(0,0,0,.18)}
 .dlg{border-radius:22px;border:1px solid var(--b)}
 .eye{margin:0;padding:1px 8px;font-size:13px;background:transparent!important;color:inherit!important;border:1px solid var(--b)}.eye:hover{background:var(--b)}.pvh{padding:4px 2px;font-size:13px}.pvh button{margin:2px 3px;padding:2px 8px}
-@keyframes nsb{0%,100%{box-shadow:0 0 12px 4px #ffd600;border-color:#ffd600}50%{box-shadow:none;border-color:transparent}}
-.mpf select.nosel{animation:nsb 1s infinite}
-@media (prefers-reduced-motion:reduce){.mpf select.nosel{animation:none;box-shadow:0 0 10px 3px #ffd600}}
+@keyframes nsb{0%,100%{box-shadow:0 0 10px 3px #ef4444;border-color:#ef4444}50%{box-shadow:none;border-color:transparent}}
+.mpf select.nosel{animation:nsb .35s infinite}
+@media (prefers-reduced-motion:reduce){.mpf select.nosel{animation:none;box-shadow:0 0 10px 3px #ef4444}}
 @keyframes mvb{0%,100%{background:#ffd600;color:#222;box-shadow:0 0 10px 2px #ffd600}50%{background:transparent;color:var(--p);box-shadow:none}}
 button.blk{animation:mvb 1s infinite;font-weight:bold;border-color:#e0b800}
 @media (prefers-reduced-motion:reduce){button.blk{animation:none;background:#ffd600;color:#222}}
-.mpf{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-start;margin:8px 0}.mpf .fr{display:flex;flex-direction:column;gap:5px;min-width:130px;flex:1 1 130px;max-width:190px}.mpf .fr select{width:100%}.mpf .fr label{text-align:center}.mpf .fr small{word-break:break-word}.dlg h3{color:var(--t)}
+.mpf{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start;margin:8px 0}.mpf .fr{display:flex;flex-direction:column;gap:4px;min-width:110px;flex:1 1 110px}.mpf .fl{background:#3b82f6;color:#fff;padding:3px 8px;border-radius:6px;font-weight:700;font-size:13px;text-align:center}.mpbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:6px 0 10px}.mpcard{background:rgba(59,130,246,.15);border:1px solid #3b82f6;border-radius:10px;padding:5px 14px;font-weight:700;white-space:nowrap}.mpcard b{color:#3b82f6;font-size:18px}.mpf select{border:2px solid #3b82f6;padding:4px 2px;font-size:12px;text-overflow:ellipsis}.mpf select.nosel{border-color:#ef4444}.mpf .fr:has(select.nosel) .fl{background:#ef4444}.mpf .fr select{width:100%}.mpf .fr label{text-align:center}.mpf .fr small{word-break:break-word}.dlg h3{color:var(--t)}
 .mp,details{border-radius:14px}
 details{background:var(--c);border:1px solid var(--b);padding:8px 14px;margin:8px 0}summary{cursor:pointer;font-weight:600}
 small{color:var(--mut);opacity:1}
@@ -937,7 +937,7 @@ async function openF(fs){fs=Array.from(fs);await toDay();for(const f of fs){try{
   const p={f:f.name,snd,fsnd:snd,sv,d,sig,M:b.M,sn:b.sn,hv,auto:autoOf(sv,snd)};
   if(sv){p.d.map=mergeMap(sv,d.map);if(p.auto){if(sv.auto&&!sv.snds){sv.snds={[snd]:true};db('put',sv,'m2:'+sig).catch(()=>0)}await imp(p);continue}}
   PF.push(p);panel()}catch(err){alert('تعذر قراءة '+f.name+': '+err.message)}}}
-const FC={send:'#e0e0e0',name:'#ffcc80',addr:'#a5d6a7',phone:'#90caf9',phone2:'#b39ddb',prod:'#f48fb1',amt:'#fff176',code:'#80cbc4',note:'#bcaaa4',qty:'#ffab91'};
+const FC=new Proxy({},{get:()=>'#3b82f6'});const PO=['name','addr','prod','phone','phone2','amt','code','note','qty'];
 function pvh(p,live){const cur={};Object.keys(FN).concat(isSh(p)?['send']:[]).forEach(f=>{const s=live&&$('s0'+f),v=s?s.value:(p.d.map[f]!=null?String(p.d.map[f]):'');if(v!==''&&cur[+v]==null)cur[+v]=f});
  const alt={};Object.entries(p.d.map.alt||{}).forEach(([f,a])=>{if(FN[f])a.forEach(j=>{if(cur[j]==null)alt[j]=f})});
  const rows=p.M,n=Math.max(...rows.map(r=>r.length)),hid=p.hide||(p.hide=new Set()),ix=[...Array(n).keys()].filter(j=>!hid.has(j));
@@ -948,7 +948,7 @@ const smp=(p,j)=>{if(j===''||j==null||+j<0)return'';const v=[];for(const r of p.
 const isSh=p=>/الشيخ/.test(String((p&&p.f)||''));
 function detSend(p){if(!isSh(p))return;const H=(p.d.hd||[]).map(x=>nh(String(x==null?'':x))),N=['الراسل','راسل','المرسل','مرسل','sender'].map(nh);let j=H.findIndex(x=>x&&N.includes(x));if(j<0)j=H.findIndex(x=>x&&N.some(n=>x.includes(n)));if(j>=0)p.d.map.send=j}
 function missF(){return Object.keys(FN).filter(f=>{const s=$('s0'+f);return s&&s.value===''})}
-function warnU(){const m=missF(),w=$('wn0');Object.keys(FN).forEach(f=>{const x=$('s0'+f);if(x)x.classList.toggle('nosel',x.value==='')});if(w)w.innerHTML=m.length?'<div style="background:#fff3cd;color:#664d03;border:1px solid #ffda6a;border-radius:8px;padding:6px 10px;margin:6px 0">⚠ لسه ما حددتش عمود لـ: <b>'+m.map(f=>FN[f]).join('، ')+'</b></div>':''}
+function warnU(){const m=missF(),w=$('wn0');Object.keys(FN).forEach(f=>{const x=$('s0'+f);if(x)x.classList.toggle('nosel',x.value==='')});if(w)w.innerHTML=m.length?'<div style="background:rgba(239,68,68,.12);color:inherit;border:1px solid rgba(239,68,68,.55);border-radius:8px;padding:5px 12px;margin:6px 0">⚠ لسه ما حددتش عمود لـ: <b>'+m.map(f=>FN[f]).join('، ')+'</b></div>':''}
 function pvTop(){const w=$('pv0'),t=$('pvt');if(!w||!t)return;t.firstChild.style.width=w.scrollWidth+'px';t.style.display=w.scrollWidth>w.clientWidth+1?'':'none';
  if(!t._s){t._s=1;t.onscroll=()=>{if(w.scrollLeft!=t.scrollLeft)w.scrollLeft=t.scrollLeft};w.onscroll=()=>{if(t.scrollLeft!=w.scrollLeft)t.scrollLeft=w.scrollLeft}}}
 function pvEye(j){const p=PF[0];if(!p.hide)p.hide=new Set();if(j<0)p.hide.clear();else if(p.hide.has(j))p.hide.delete(j);else p.hide.add(j);$('pv0').innerHTML=pvh(p,true);pvTop()}
@@ -956,10 +956,11 @@ function smpU(f){const p=PF[0];warnU();$('x0'+f).textContent=smp(p,$('s0'+f).val
 function reHr(){const p=PF[0];p.snd=cl($('sd0').value)||p.snd;p.hv=$('hr0').value;p.d=detect(p.M,p.hv=='a'?undefined:+p.hv);if(p.hv=='a')p.d=detect(p.M);panel()}
 function panel(){const o=$('mp');if(!PF.length){o.innerHTML='';return}
  const p=PF[0];if(isSh(p)&&p.d.map.send==null)detSend(p);const n=Math.max(...p.d.D.slice(0,20).map(r=>r.length),(p.d.hd||[]).length),col=j=>XLSX.utils.encode_col(j)+': '+e(cl(p.d.hd[j]||'').slice(0,32)||'(بدون اسم)');
- const sel=f=>'<select id="s0'+f+'" style="background:'+FC[f]+';color:#111;font-weight:bold;border:2px solid '+FC[f]+'" onchange="smpU(\''+f+'\')"><option value="">— بدون —</option>'+[...Array(n).keys()].map(j=>'<option value="'+j+'"'+(p.d.map[f]===j?' selected':'')+'>'+col(j)+'</option>').join('')+'</select>';
+ const sel=f=>'<select id="s0'+f+'" style="font-weight:bold" onchange="smpU(\''+f+'\')"><option value="">— بدون —</option>'+[...Array(n).keys()].map(j=>'<option value="'+j+'"'+(p.d.map[f]===j?' selected':'')+'>'+col(j)+'</option>').join('')+'</select>';
  const hr=['<option value="a"'+(p.hv=='a'?' selected':'')+'>تلقائي</option>','<option value="-1"'+(p.hv=='-1'?' selected':'')+'>بدون رأس جدول</option>'].concat([0,1,2,3,4].map(i=>'<option value="'+i+'"'+(p.hv==String(i)?' selected':'')+'>الصف '+(i+1)+'</option>')).join('');
- setTimeout(()=>{warnU();pvTop()},0);o.innerHTML='<div class="ov"><div class="dlg"><h3>تحديد الأعمدة: '+e(p.f)+'</h3><div style="margin:6px 0"><button onclick="goImp()">استيراد</button> <label class="swl" title="يحفظ الأعمدة اللي اخترتها ويستورد الملفات بنفس الشكل تلقائي المرة الجاية"><span class="sw"><input type="checkbox" id="aut"'+(p.auto?' checked':'')+'><i></i></span> ⚡ استيراد تلقائي المرة الجاية</label><button class="s" onclick="PF.shift();panel()">إلغاء</button>'+(PF.length>1?' <small>(وفي '+(PF.length-1)+' ملف تاني مستني)</small>':'')+'</div><div>الراسل: <input id="sd0" value="'+e(p.snd)+'"> &nbsp; رأس الجدول: <select id="hr0" onchange="reHr()">'+hr+'</select> <small>(الورقة: '+e(p.sn||'')+' | '+p.d.D.length+' صف بيانات'+(p.d.h>=0?'، الرأس في الصف '+(p.d.h+1):'، من غير رأس')+')</small></div><small>معاينة الملف كله ('+p.M.length+' صف) زي ما هو في Excel، اسحب للتمرير. الأعمدة الملونة هي اللي هتتستورد.</small><div id="wn0"></div>'
- +'<div class="mpf">'+Object.keys(FN).map(f=>'<div class="fr"><label style="background:'+FC[f]+';color:#111;padding:3px 10px;border-radius:6px">'+FN[f]+'</label>'+sel(f)+' <small id="x0'+f+'">'+e(smp(p,p.d.map[f]))+'</small></div>').join('')+(isSh(p)?'<div class="fr"><label style="background:'+FC.send+';color:#111;padding:3px 10px;border-radius:6px">الراسل (من عمود في الملف)</label>'+sel('send')+' <small id="x0send">'+e(smp(p,p.d.map.send))+'</small></div>':'')+'</div><div id="pvt" class="pvt"><div></div></div><div class="pvc"><div class="pvw" id="pv0">'+pvh(p)+'</div></div>'
+ setTimeout(()=>{warnU();pvTop()},0);o.innerHTML='<div class="ov"><div class="dlg"><h3>تحديد الأعمدة: '+e(p.f)+'</h3><div class="mpbar"><button onclick="goImp()">استيراد</button><button class="s" onclick="PF.shift();panel()">إلغاء</button><span class="mpcard">📦 عدد الشحنات: <b>'+p.d.D.length+'</b></span><label class="swl" title="يحفظ الأعمدة اللي اخترتها ويستورد الملفات بنفس الشكل تلقائي المرة الجاية"><span class="sw"><input type="checkbox" id="aut"'+(p.auto?' checked':'')+'><i></i></span> ⚡ استيراد تلقائي المرة الجاية</label><span>الراسل: <input id="sd0" value="'+e(p.snd)+'"></span><span>رأس الجدول: <select id="hr0" onchange="reHr()">'+hr+'</select></span></div>'
+ +'<div class="mpf">'+PO.map(f=>'<div class="fr"><label class="fl">'+FN[f]+'</label>'+sel(f)+' <small id="x0'+f+'">'+e(smp(p,p.d.map[f]))+'</small></div>').join('')+(isSh(p)?'<div class="fr"><label class="fl">الراسل (من عمود في الملف)</label>'+sel('send')+' <small id="x0send">'+e(smp(p,p.d.map.send))+'</small></div>':'')+'</div><div id="wn0"></div>'
+ +'<div id="pvt" class="pvt"><div></div></div><div class="pvc"><div class="pvw" id="pv0">'+pvh(p)+'</div></div>'
  +'<div style="font-size:12px;opacity:.8">الأعمدة اللي تختارها بتتحفظ دايماً لنفس الشكل. زر ⚡ بيخلّي الملفات بنفس الشكل تتستورد من غير نافذة (ترجّعها من "نسيان إعدادات الأعمدة").'+(p.auto?' <b>الاستيراد التلقائي مفعّل لهذا الشكل حالياً.</b>':'')+'</div>'
  +'</div></div>'}
 const mergeMap=(sv,dm)=>{const o={};Object.keys(FN).concat('area').forEach(f=>{if(sv[f]===undefined){if(dm[f]!=null)o[f]=dm[f]}else if(sv[f]>=0)o[f]=sv[f]});
