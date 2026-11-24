@@ -918,6 +918,25 @@
         .account-modal-card .form-check input { width: auto; }
         .account-modal-card .modal-actions { display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1rem; }
 
+        /* Account menu (header) */
+        .acc-menu-wrap { position: relative; }
+        .acc-menu { display: none; position: absolute; top: calc(100% + 8px); left: 0; min-width: 190px; background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 6px; box-shadow: 0 12px 30px rgba(0,0,0,0.18); z-index: 3000; }
+        .acc-menu.show { display: block; }
+        .acc-menu-item { display: flex; align-items: center; gap: 10px; width: 100%; background: transparent; border: 0; border-radius: 10px; padding: 9px 12px; font-weight: 600; font-size: 0.85rem; color: inherit; cursor: pointer; text-align: right; }
+        .acc-menu-item:hover { background: rgba(59,130,246,0.1); }
+        .acc-menu-item.danger { color: #ef4444; }
+        .acc-menu-item.danger:hover { background: rgba(239,68,68,0.12); }
+        .acc-menu-sep { height: 1px; background: #e2e8f0; margin: 4px 6px; }
+        .my-acc-card { position: relative; }
+        .my-acc-x { position: absolute; top: 14px; left: 14px; width: 36px; height: 36px; padding: 0; }
+        /* Bulk action bar: one line on wide screens */
+        @media (min-width: 992px) {
+            #bulkActionBar { width: min(1240px, 97vw) !important; }
+            #bulkActionBar > div { flex-wrap: nowrap !important; }
+            #bulkActionBar .d-md-block, #bulkActionBar .btn, #bulkActionBar .input-group { white-space: nowrap; }
+            #bulkActionBar .input-group { flex: 0 1 auto; min-width: 0; }
+        }
+
         /* Data Entry page */
         #zoneFrame { width: 100%; border: 0; display: block; height: calc(100vh - 140px); min-height: 520px; background: transparent; border-radius: 14px; }
         .account-modal-card .form-group textarea { width: 100%; padding: 0.5rem 0.75rem; border: 1px solid #e2e8f0; border-radius: 10px; font-size: 0.85rem; resize: vertical; }
@@ -1266,6 +1285,10 @@
         .login-body .form-check-label { color: #94a3b8; }
         .login-error { background: rgba(239,68,68,0.12); border-color: rgba(239,68,68,0.25); color: #fca5a5; }
         .login-footer { color: #64748b; }
+            .acc-menu { background: #1e293b; border-color: #334155; color: #e2e8f0; }
+        .acc-menu-sep { background: #334155; }
+        .acc-menu-item:hover { background: rgba(255,255,255,0.08); }
+        .acc-menu-item.danger { color: #f87171; }
     </style>
 </head>
 <body>
@@ -1626,9 +1649,14 @@
                     <button id="themeToggleBtn" class="btn btn-light btn-sm rounded-circle shadow-sm flex-shrink-0"><i class="fas fa-moon"></i></button>
                     <button id="perfModeBtn" class="btn btn-light btn-sm rounded-circle shadow-sm flex-shrink-0" title="وضع الأداء المنخفض (إيقاف تأثيرات الضبابية)"><i class="fas fa-bolt"></i></button>
                     <button id="qrActionBtn" class="btn btn-light btn-sm rounded-circle shadow-sm flex-shrink-0" type="button" title="QR"><i class="fas fa-qrcode"></i></button>
-                    <button id="logoutBtn" class="logout-btn" onclick="logoutUser()" title="تسجيل الخروج">
-                        <i class="fas fa-sign-out-alt"></i>
-                    </button>
+                    <div class="acc-menu-wrap flex-shrink-0">
+                        <button id="accountMenuBtn" class="btn btn-primary btn-sm rounded-circle shadow-sm" type="button" title="قائمة" onclick="toggleAccountMenu(event)" style="display:none"><i class="fas fa-bars"></i></button>
+                        <div id="accountMenu" class="acc-menu">
+                            <button type="button" class="acc-menu-item" onclick="closeAccountMenu(); openMyAccount()"><i class="fas fa-user-edit"></i> تعديل الحساب</button>
+                            <div class="acc-menu-sep"></div>
+                            <button type="button" class="acc-menu-item danger" onclick="closeAccountMenu(); logoutUser()"><i class="fas fa-sign-out-alt"></i> تسجيل الخروج</button>
+                        </div>
+                    </div>
                 </div>
             </div>
             <div id="shipmentsSection" class="shipments-section">
@@ -1911,6 +1939,28 @@
 </div>
 
 <!-- Account Modal -->
+<!-- My account (change own password) -->
+<div id="myAccountOverlay" class="account-modal-overlay">
+    <div class="account-modal-card my-acc-card">
+        <button type="button" class="btn btn-outline-secondary btn-sm rounded-circle my-acc-x" onclick="closeMyAccount()" title="إغلاق"><i class="fas fa-times"></i></button>
+        <h4><i class="fas fa-user-edit text-primary me-1"></i> تعديل الحساب</h4>
+        <div class="form-group">
+            <label>كلمة المرور الجديدة</label>
+            <input type="password" id="myNewPass" placeholder="كلمة المرور الجديدة" dir="ltr" autocomplete="new-password">
+        </div>
+        <div class="form-group">
+            <label>تأكيد كلمة المرور</label>
+            <input type="password" id="myConfirmPass" placeholder="أعد كتابة كلمة المرور" dir="ltr" autocomplete="new-password">
+        </div>
+        <div style="font-size:0.72rem;color:#64748b">8 أحرف على الأقل، ويجب أن تتطابق الكلمتان.</div>
+        <div id="myAccError" class="login-error"></div>
+        <div class="modal-actions">
+            <button class="btn btn-outline-secondary rounded-pill" onclick="closeMyAccount()">إلغاء</button>
+            <button class="btn btn-primary rounded-pill" id="myAccSaveBtn" onclick="saveMyPassword()"><i class="fas fa-save"></i> حفظ</button>
+        </div>
+    </div>
+</div>
+
 <div id="accountModalOverlay" class="account-modal-overlay">
     <div class="account-modal-card">
         <h4 id="accountModalTitle">إضافة حساب جديد</h4>
@@ -6555,7 +6605,7 @@
         document.getElementById('loggedInUserName').textContent = user.username || user.email || 'مستخدم';
         document.getElementById('tabBar').style.display = 'flex';
         applyTabPermissions(user);
-        document.getElementById('logoutBtn').style.display = 'inline-block';
+        document.getElementById('accountMenuBtn').style.display = 'inline-block';
         if (user.username) {
             document.getElementById('loggedInUserName').textContent = user.username;
             localStorage.setItem('employee_name', user.username);
@@ -6567,6 +6617,48 @@
             sel.selectedIndex = 0;
             sel.dispatchEvent(new Event('change'));
         }
+    }
+
+    // ---- header menu + own account (change password) ----
+    function closeAccountMenu() { var m = document.getElementById('accountMenu'); if (m) m.classList.remove('show'); }
+    function toggleAccountMenu(ev) { if (ev) ev.stopPropagation(); document.getElementById('accountMenu').classList.toggle('show'); }
+    document.addEventListener('click', function(ev) { if (!ev.target.closest || !ev.target.closest('.acc-menu-wrap')) closeAccountMenu(); });
+    document.addEventListener('keydown', function(ev) { if (ev.key === 'Escape') closeAccountMenu(); });
+    function openMyAccount() {
+        document.getElementById('myNewPass').value = '';
+        document.getElementById('myConfirmPass').value = '';
+        document.getElementById('myAccError').classList.remove('show');
+        document.getElementById('myAccountOverlay').classList.add('show');
+        setTimeout(function() { document.getElementById('myNewPass').focus(); }, 50);
+    }
+    function closeMyAccount() { document.getElementById('myAccountOverlay').classList.remove('show'); }
+    function myAccFail(msg) { var e = document.getElementById('myAccError'); e.textContent = msg; e.classList.add('show'); }
+    async function saveMyPassword() {
+        var p1 = document.getElementById('myNewPass').value, p2 = document.getElementById('myConfirmPass').value;
+        if (p1.length < 8) return myAccFail('كلمة المرور يجب ألا تقل عن 8 أحرف');
+        if (p1 !== p2) return myAccFail('كلمتا المرور غير متطابقتين');
+        if (!_session) return myAccFail('انتهت الجلسة، سجّل الدخول من جديد');
+        var btn = document.getElementById('myAccSaveBtn'); btn.disabled = true;
+        try {
+            if (Date.now() - _sessionAt > 50 * 60 * 1000) await doRefresh();
+            var res = await fetch(SUPABASE_BASE + '/auth/v1/user', {
+                method: 'PUT',
+                headers: { 'apikey': SUPABASE_AUTH_KEY, 'Authorization': 'Bearer ' + _session.access_token, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password: p1 })
+            });
+            var d = await res.json().catch(function() { return {}; });
+            if (!res.ok) {
+                var m = String(d.msg || d.message || d.error_description || '');
+                if (/same|different/i.test(m)) return myAccFail('كلمة المرور الجديدة يجب أن تختلف عن الحالية');
+                if (/weak|short|characters/i.test(m)) return myAccFail('كلمة المرور ضعيفة، اختر كلمة أقوى');
+                return myAccFail('تعذّر تغيير كلمة المرور، حاول مرة أخرى');
+            }
+            localStorage.removeItem('saved_password');
+            closeMyAccount();
+            Swal.fire({ icon: 'success', title: 'تم تغيير كلمة المرور', confirmButtonText: 'حسناً' });
+        } catch (e) {
+            myAccFail('تعذّر الاتصال بالسيرفر');
+        } finally { btn.disabled = false; }
     }
 
     function logoutUser() {
@@ -6589,7 +6681,7 @@
                 document.getElementById('loginOverlay').classList.remove('hidden');
                 document.getElementById('loginError').classList.remove('show');
                 document.getElementById('loggedInUserBadge').style.display = 'none';
-                document.getElementById('logoutBtn').style.display = 'none';
+                document.getElementById('accountMenuBtn').style.display = 'none'; closeAccountMenu();
                 document.getElementById('tabBar').style.display = 'none';
                 document.getElementById('dailyFilter').style.display = 'none';
                 document.getElementById('loginPassword').value = '';
