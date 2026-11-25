@@ -1600,16 +1600,10 @@
                     <button id="loadExcelBtn" class="btn btn-primary btn-sm rounded-pill w-100"><i class="fas fa-folder-open me-1"></i> فتح ملف</button>
                 </div>
                 <div class="p-2 border-bottom d-flex flex-column gap-1">
-                    <button id="generateCodesBtn" class="btn btn-outline-warning btn-sm rounded-pill w-100">
-                        <i class="fas fa-barcode me-1"></i> توليد أكواد فريدة
-                    </button>
                     <button id="bulkUpdateBtn" class="btn btn-outline-primary btn-sm rounded-pill w-100">
                         <i class="fas fa-cloud-download-alt me-1"></i> تحديث جماعي
                     </button>
                     <button id="exportSavedBtn" class="btn btn-success btn-sm rounded-pill w-100"><i class="fas fa-file-export me-1"></i> تصدير</button>
-                    <button id="uploadShipmentsBtn" class="btn btn-outline-info btn-sm rounded-pill w-100" disabled>
-                        <i class="fas fa-cloud-upload-alt me-1"></i> رفع الشحنات
-                    </button>
                     <button id="printLabelsBtn" class="btn btn-outline-dark btn-sm rounded-pill w-100">
                         <i class="fas fa-print me-1"></i> طباعة
                     </button>
@@ -3191,7 +3185,6 @@
             undoBadge.innerText = actionHistory.length;
             undoBadge.style.display = hasHistory ? 'inline' : 'none';
         }
-        document.getElementById('uploadShipmentsBtn').disabled = !fullDataset.length;
     }
 
     function toggleColFilter(c, b) {
@@ -4330,65 +4323,6 @@
         }
     };
 
-    document.getElementById('generateCodesBtn').onclick = () => {
-        if (!fullDataset.length) return Swal.fire('تنبيه', 'لا توجد بيانات لتوليد أكواد لها', 'info');
-        
-        let targetRows = [];
-        let contextText = "";
-        
-        if (selectedIds.size > 0) {
-            targetRows = fullDataset.filter(r => selectedIds.has(r._id.toString()) && !r.code);
-            contextText = `لـ ${targetRows.length} شحنة مختارة (بدون كود)`;
-            if (targetRows.length === 0) {
-                 return Swal.fire('تنبيه', 'جميع الشحنات المختارة لديها أكواد بالفعل', 'info');
-            }
-        } else {
-            targetRows = fullDataset.filter(r => !r.code);
-            contextText = `لـ ${targetRows.length} شحنة (التي لا تملك كود حالياً)`;
-            if (targetRows.length === 0) {
-                return Swal.fire('تنبيه', 'جميع الشحنات لديها أكواد بالفعل', 'info');
-            }
-        }
-
-        Swal.fire({
-            title: 'توليد أكواد فريدة',
-            text: `هل تريد توليد أكواد تلقائية ${contextText}؟ سيتم استخدام نظام فريد يمنع التكرار (مثال: AR-240519-XYZ123).`,
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonText: 'نعم، ولد الأكواد',
-            cancelButtonText: 'إلغاء'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                const existingCodes = new Set(fullDataset.map(r => r.code).filter(Boolean));
-                
-                targetRows.forEach(r => {
-                    let newCode;
-                    do {
-                        const now = new Date();
-                        const dateStr = now.getFullYear().toString().slice(-2) + 
-                                       (now.getMonth()+1).toString().padStart(2,'0') + 
-                                       now.getDate().toString().padStart(2,'0');
-                        const randomStr = Math.random().toString(36).substring(2, 8).toUpperCase();
-                        newCode = `AR-${dateStr}-${randomStr}`;
-                    } while (existingCodes.has(newCode));
-                    
-                    var id = r._id.toString();
-                    actionHistory.push({ id: parseInt(id), col: 'code', oldVal: r.code, newVal: newCode, time: new Date() });
-                    if (!modifiedCells.has(id + '_code')) modifiedCells.set(id + '_code', r.code);
-                    else if (newCode === modifiedCells.get(id + '_code')) modifiedCells.delete(id + '_code');
-                    r.code = newCode;
-                    patchServerRow(r, 'code', newCode);
-                    _trackEmployeeEvent(r, ['code']);
-                    existingCodes.add(newCode);
-                });
-                
-                requestRender();
-                updateChangesBadge();
-                Swal.fire('تم', `تم توليد الأكواد لـ ${targetRows.length} شحنة بنجاح`, 'success');
-            }
-        });
-    };
-
     // Dashboard Dynamic Period Logic
     function getDailyDate(dailyName) {
         if (!dailyName) return null;
@@ -5150,15 +5084,25 @@
             _updateUploadBtnFlash();
         }
     }
+    var _syncWarned = false;
     function _updateUploadBtnFlash() {
-        const btn = document.getElementById('uploadShipmentsBtn');
-        if (!btn) return;
-        const hasFailures = _pendingSyncFailures.size > 0;
-        btn.classList.toggle('btn-flash-alert', hasFailures);
-        btn.title = hasFailures
-            ? `${_pendingSyncFailures.size} تعديل لم يصل لقاعدة البيانات — اضغط لإعادة المزامنة`
-            : 'رفع شحنات';
+        // no upload button any more: tell the user once, and failed edits are retried automatically (see below)
+        var n = _pendingSyncFailures.size;
+        if (n && !_syncWarned) {
+            _syncWarned = true;
+            Swal.fire({ toast: true, position: 'top', icon: 'warning', title: 'تعذّر حفظ تعديل على السيرفر، ستتم إعادة المحاولة تلقائياً', showConfirmButton: false, timer: 3500 });
+        }
+        if (!n) _syncWarned = false;
     }
+    setInterval(function() {
+        if (!_pendingSyncFailures.size || !_dataFromServer) return;
+        Array.from(_pendingSyncFailures).forEach(function(key) {
+            var i = key.indexOf('_'), id = key.slice(0, i), col = key.slice(i + 1);
+            var row = fullDataset.find(function(x) { return String(x._id) === id; });
+            if (!row) { _pendingSyncFailures.delete(key); return; }
+            patchServerRow(row, col, row[col]);
+        });
+    }, 15000);
 
     async function patchServerRow(r, col, value) {
         if (!_dataFromServer || !r || !r.code) return;
@@ -6093,7 +6037,6 @@
     document.getElementById('undoBtn').onclick = undoLastAction;
     document.getElementById('historyBtn').onclick = showHistory;
     document.getElementById('printLabelsBtn').onclick = printLabels;
-    document.getElementById('uploadShipmentsBtn').onclick = uploadShipments;
     document.getElementById('bulkUpdateBtn').onclick = openBulkUpdate;
     document.getElementById('exportSavedBtn').onclick = () => { document.getElementById('exportDialogOverlay').hidden = false; };
     document.getElementById('exportRepOption').onclick = () => { document.getElementById('exportDialogOverlay').hidden = true; exportByRep(); };
