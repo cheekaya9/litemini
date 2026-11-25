@@ -1204,8 +1204,8 @@
         #bulkModalArchiveFilterBtn {   color: #e2e8f0; border-color: #475569;   }
         #bulkModalArchiveFilterBtn:hover {   background: rgba(255,255,255,0.1);   }
         .sidebar-filter-panel input.form-control, [data-bs-theme="dark"] .sidebar-filter-panel select {   background: #0f172a; color: #e2e8f0; border-color: #475569;   }
-        [data-bs-theme="dark"] #senderSearch, [data-bs-theme="dark"] #repSearch, [data-bs-theme="dark"] #statusSearch, [data-bs-theme="dark"] #closingSearch { background: #0f172a !important; color: #e2e8f0 !important; border-color: #475569 !important; }
-        [data-bs-theme="dark"] #senderSearch::placeholder, [data-bs-theme="dark"] #repSearch::placeholder, [data-bs-theme="dark"] #statusSearch::placeholder, [data-bs-theme="dark"] #closingSearch::placeholder { color: #64748b !important; }
+        [data-bs-theme="dark"] .sb-search { background: #0f172a !important; color: #e2e8f0 !important; border-color: #475569 !important; }
+        [data-bs-theme="dark"] .sb-search::placeholder { color: #64748b !important; }
         .export-dialog-card {   background: #1e293b; color: #f8fafc; border-color: #334155;   }
         .export-dialog-title {   color: #f8fafc;   }
         .export-option-card {   background: #0f172a; border-color: #334155;   }
@@ -1601,7 +1601,8 @@
             <button id="sidebarToggleBtn" class="sidebar-toggle-btn" title="طي القائمة الجانبية"><i class="fas fa-chevron-right"></i></button>
             <div class="sidebar-content">
                 <div class="p-3 border-bottom d-flex justify-content-between align-items-center">
-                    <strong class="small">الفلاتر الجانبية</strong>
+                    <div class="d-flex align-items-center gap-2"><strong class="small">الفلاتر الجانبية</strong>
+                    <button id="sidebarColsBtn" class="btn btn-outline-secondary btn-sm rounded-circle d-flex align-items-center justify-content-center" style="width:30px;height:30px;padding:0" title="أعمدة الفلاتر الجانبية"><i class="fas fa-cog"></i></button></div>
                     <span class="badge bg-primary rounded-pill" id="sidebarBadge">0</span>
                 </div>
                 <div class="p-2 border-bottom">
@@ -1616,28 +1617,8 @@
                         <i class="fas fa-print me-1"></i> طباعة
                     </button>
                 </div>
-                <div class="p-2 border-bottom d-flex gap-1">
-                    <button class="btn btn-sm btn-outline-secondary flex-grow-1 sidebar-tab-btn active" data-tab="sender">الراسل</button>
-                    <button class="btn btn-sm btn-outline-secondary flex-grow-1 sidebar-tab-btn" data-tab="rep">المندوب</button>
-                    <button class="btn btn-sm btn-outline-secondary flex-grow-1 sidebar-tab-btn" data-tab="status">الحالة</button>
-                    <button class="btn btn-sm btn-outline-secondary flex-grow-1 sidebar-tab-btn" data-tab="closing">تقفيل</button>
-                </div>
-                <div class="sender-filter-panel active" id="senderPanel">
-                    <div class="p-2"><input type="text" id="senderSearch" class="form-control form-control-sm rounded-pill" placeholder="بحث..."></div>
-                    <div class="sender-filter-list" id="senderList"></div>
-                </div>
-                <div class="sender-filter-panel" id="repPanel">
-                    <div class="p-2"><input type="text" id="repSearch" class="form-control form-control-sm rounded-pill" placeholder="بحث..."></div>
-                    <div class="sender-filter-list" id="repList"></div>
-                </div>
-                <div class="sender-filter-panel" id="statusPanel">
-                    <div class="p-2"><input type="text" id="statusSearch" class="form-control form-control-sm rounded-pill" placeholder="بحث..."></div>
-                    <div class="sender-filter-list" id="statusList"></div>
-                </div>
-                <div class="sender-filter-panel" id="closingPanel">
-                    <div class="p-2"><input type="text" id="closingSearch" class="form-control form-control-sm rounded-pill" placeholder="بحث..."></div>
-                    <div class="sender-filter-list" id="closingList"></div>
-                </div>
+                <div class="p-2 border-bottom d-flex flex-wrap gap-1" id="sidebarTabs"></div>
+                <div id="sidebarPanels"></div>
             </div>
         </aside>
         <div class="app-main-content d-flex flex-column gap-2" id="mainContentArea" style="flex:1;min-width:0">
@@ -2090,6 +2071,12 @@
     let selectedIds = new Set();
     let _archiveFilter = 'active';
     let activeSenderFilter = []; let activeRepFilter = []; let activeStatusFilter = []; let activeClosingFilter = [];
+    let activeSidebarFilters = {};
+    const SB_DEFAULT = ['sender','rep','status','closing'];
+    function sbLoadCols(){ try{ var a=JSON.parse(localStorage.getItem('sidebar_cols')); if(Array.isArray(a)) return a.filter(function(c){return allPossibleColumns.indexOf(c)>-1;}); }catch(e){} return SB_DEFAULT.slice(); }
+    function sbGet(c){ return c==='sender'?activeSenderFilter:c==='rep'?activeRepFilter:c==='status'?activeStatusFilter:c==='closing'?activeClosingFilter:(activeSidebarFilters[c]||[]); }
+    function sbSet(c,a){ if(c==='sender')activeSenderFilter=a; else if(c==='rep')activeRepFilter=a; else if(c==='status')activeStatusFilter=a; else if(c==='closing')activeClosingFilter=a; else if(a.length)activeSidebarFilters[c]=a; else delete activeSidebarFilters[c]; }
+    function sbExtraActive(){ return Object.keys(activeSidebarFilters).length>0; }
     let activeStatsFilter = "visible"; let activeColumnFilters = {};
     let sidebarTab = "sender"; let currentTablePage = 1; const ROWS_PER_PAGE = 150;
     let quickAssignRepName = "";
@@ -2783,6 +2770,7 @@
                 if (!matchesNormal || !matchesEmpty) return false;
             }
             if(activeClosingFilter.length > 0 && !activeClosingFilter.includes(r.closing)) return false;
+            for (var _sk in activeSidebarFilters) { var _sv = activeSidebarFilters[_sk]; if(_sv.length){ var _x = normalize(r[_sk]); if(!(_x ? _sv.includes(_x) : _sv.includes('__empty__'))) return false; } }
             if(_activeDailyFilter && normalize(r.daily) !== normalize(_activeDailyFilter) && normalize(r["اليومية"]) !== normalize(_activeDailyFilter)) return false;
             
             if(activeStatsFilter === 'withRep') return !!r.rep;
@@ -2814,7 +2802,7 @@
         const hasSenderFilter = activeSenderFilter.length > 0;
         const hasRepFilter = activeRepFilter.length > 0;
         const hasStatusFilter = activeStatusFilter.length > 0;
-        const hasClosingFilter = activeClosingFilter.length > 0;
+        const hasClosingFilter = activeClosingFilter.length > 0 || sbExtraActive();
         const hasStatsFilter = activeStatsFilter !== "visible";
         const hasColFilters = Object.keys(activeColumnFilters).length > 0;
         const hasFilters = hasSearch || hasSenderFilter || hasRepFilter || hasStatusFilter || hasClosingFilter || hasStatsFilter || hasColFilters;
@@ -2824,7 +2812,8 @@
         if (hasSenderFilter) count++;
         if (hasRepFilter) count++;
         if (hasStatusFilter) count++;
-        if (hasClosingFilter) count++;
+        if (activeClosingFilter.length > 0) count++;
+        count += Object.keys(activeSidebarFilters).length;
         if (hasStatsFilter) count++;
         if (hasColFilters) count += Object.keys(activeColumnFilters).length;
         
@@ -3324,6 +3313,7 @@
     var _sidebarCache = {};
     function refreshSidebar() {
         _sidebarCache = {};
+        if (!sbCols.length) { document.getElementById('sidebarBadge').innerText = '0'; return; }
         const searchInput = document.getElementById(sidebarTab + 'Search');
         const term = searchInput ? searchInput.value.toLowerCase() : "";
         
@@ -3352,7 +3342,7 @@
         const list = document.getElementById(sidebarTab + 'List');
         if(!list) return;
 
-        let activeVal = sidebarTab === "status" ? activeStatusFilter : sidebarTab === "sender" ? activeSenderFilter : sidebarTab === "closing" ? activeClosingFilter : activeRepFilter;
+        let activeVal = sbGet(sidebarTab);
 
         const isAllActive = Array.isArray(activeVal) ? activeVal.length === 0 : !activeVal;
         let h = '<button class="sender-filter-item ' + (isAllActive?'active':'') + '" data-filter-value="__all__" onclick="setSidebarFilter(\'\')">الكل</button>';
@@ -3376,43 +3366,83 @@
     }
 
     function setSidebarFilter(v, e) {
-        const target = sidebarTab === "sender" ? "activeSenderFilter" : sidebarTab === "rep" ? "activeRepFilter" : sidebarTab === "closing" ? "activeClosingFilter" : "activeStatusFilter";
-        const arr = target === "activeStatusFilter" ? activeStatusFilter : target === "activeSenderFilter" ? activeSenderFilter : target === "activeClosingFilter" ? activeClosingFilter : activeRepFilter;
+        const col = sidebarTab;
+        const arr = sbGet(col).slice();
         if(v === "" || v === "__all__") {
-            if(target === "activeStatusFilter") activeStatusFilter = [];
-            else if(target === "activeSenderFilter") activeSenderFilter = [];
-            else if(target === "activeClosingFilter") activeClosingFilter = [];
-            else activeRepFilter = [];
+            sbSet(col, []);
         } else if(e && e.ctrlKey) {
             const idx = arr.indexOf(v);
             if(idx > -1) arr.splice(idx, 1); else arr.push(v);
+            sbSet(col, arr);
         } else {
-            const newArr = arr.includes(v) && arr.length === 1 ? [] : [v];
-            if(target === "activeStatusFilter") activeStatusFilter = newArr;
-            else if(target === "activeSenderFilter") activeSenderFilter = newArr;
-            else if(target === "activeClosingFilter") activeClosingFilter = newArr;
-            else activeRepFilter = newArr;
+            sbSet(col, arr.includes(v) && arr.length === 1 ? [] : [v]);
         }
         applyFilters();
-        // Update active classes in-place instead of rebuilding DOM
-        const sidebarList = document.getElementById(sidebarTab + 'List');
+        const sidebarList = document.getElementById(col + 'List');
         if (sidebarList) {
-            const btns = sidebarList.querySelectorAll('.sender-filter-item');
-            const arr2 = target === "activeStatusFilter" ? activeStatusFilter : target === "activeSenderFilter" ? activeSenderFilter : target === "activeClosingFilter" ? activeClosingFilter : activeRepFilter;
-            btns.forEach(function(b) {
+            const arr2 = sbGet(col);
+            sidebarList.querySelectorAll('.sender-filter-item').forEach(function(b) {
                 const val = b.getAttribute('data-filter-value');
-                const isA = val === '__all__' ? arr2.length === 0 : arr2.includes(val);
-                b.classList.toggle('active', isA);
+                b.classList.toggle('active', val === '__all__' ? arr2.length === 0 : arr2.includes(val));
             });
         }
     }
 
-    // Add search listeners (debounced)
+    // Sidebar tabs/panels (dynamic, configurable)
     const debouncedSidebar = debounce(() => refreshSidebar(), 80);
-    document.getElementById('senderSearch').oninput = debouncedSidebar;
-    document.getElementById('repSearch').oninput = debouncedSidebar;
-    document.getElementById('statusSearch').oninput = debouncedSidebar;
-    document.getElementById('closingSearch').oninput = debouncedSidebar;
+    let sbCols = sbLoadCols();
+    function buildSidebar() {
+        const tabs = document.getElementById('sidebarTabs'), panels = document.getElementById('sidebarPanels');
+        if (!tabs || !panels) return;
+        if (sbCols.indexOf(sidebarTab) < 0) sidebarTab = sbCols[0] || '';
+        tabs.style.display = sbCols.length ? '' : 'none';
+        tabs.innerHTML = sbCols.map(function(c){ return '<button class="btn btn-sm btn-outline-secondary flex-grow-1 sidebar-tab-btn' + (c===sidebarTab?' active':'') + '" data-tab="' + c + '">' + escapeHtml(colDisplay[c] || c) + '</button>'; }).join('');
+        panels.innerHTML = sbCols.map(function(c){ return '<div class="sender-filter-panel' + (c===sidebarTab?' active':'') + '" id="' + c + 'Panel"><div class="p-2"><input type="text" id="' + c + 'Search" class="form-control form-control-sm rounded-pill sb-search" placeholder="بحث..."></div><div class="sender-filter-list" id="' + c + 'List"></div></div>'; }).join('');
+        sbCols.forEach(function(c){ document.getElementById(c + 'Search').oninput = debouncedSidebar; });
+        tabs.querySelectorAll('.sidebar-tab-btn').forEach(function(b){ b.onclick = function(){
+            tabs.querySelectorAll('.sidebar-tab-btn').forEach(function(x){ x.classList.remove('active'); });
+            panels.querySelectorAll('.sender-filter-panel').forEach(function(x){ x.classList.remove('active'); });
+            b.classList.add('active'); sidebarTab = b.dataset.tab;
+            document.getElementById(sidebarTab + 'Panel').classList.add('active'); refreshSidebar();
+        }; });
+    }
+    buildSidebar();
+
+    var _sbDraft = [];
+    function sbDialogHtml() {
+        var sel = _sbDraft, rest = allPossibleColumns.filter(function(c){ return sel.indexOf(c) < 0; });
+        var all = sel.concat(rest), n = sel.length;
+        var h = '<div id="sbConfigList" class="text-end" style="max-height:400px;overflow-y:auto">';
+        all.forEach(function(c, i){
+            var on = i < n;
+            h += '<div class="d-flex align-items-center justify-content-between p-2 border-bottom"><div class="d-flex align-items-center gap-3"><input type="checkbox" id="sb-check-' + c + '" ' + (on?'checked':'') + ' onchange="sbToggle(\'' + c + '\')"><label for="sb-check-' + c + '" class="mb-0 fw-bold">' + escapeHtml(colDisplay[c] || c) + '</label></div><div class="d-flex gap-1">' +
+              (on ? '<button class="btn btn-sm btn-outline-secondary" onclick="sbMove(' + i + ', -1)" ' + (i===0?'disabled':'') + '><i class="fas fa-chevron-up"></i></button><button class="btn btn-sm btn-outline-secondary" onclick="sbMove(' + i + ', 1)" ' + (i===n-1?'disabled':'') + '><i class="fas fa-chevron-down"></i></button>' : '') + '</div></div>';
+        });
+        return h + '</div>';
+    }
+    function sbRedraw() { var el = document.getElementById('sbConfigList'); var top = el ? el.scrollTop : 0; Swal.update({ html: sbDialogHtml() }); var e2 = document.getElementById('sbConfigList'); if (e2) e2.scrollTop = top; }
+    window.sbToggle = function(c){ var i = _sbDraft.indexOf(c); if (i > -1) _sbDraft.splice(i,1); else _sbDraft.push(c); sbRedraw(); };
+    window.sbMove = function(i, d){ var j = i + d; if (j < 0 || j >= _sbDraft.length) return; var t = _sbDraft[i]; _sbDraft[i] = _sbDraft[j]; _sbDraft[j] = t; sbRedraw(); };
+    function sbApply(cols) {
+        var removed = sbCols.filter(function(c){ return cols.indexOf(c) < 0; });
+        sbCols = cols;
+        try { localStorage.setItem('sidebar_cols', JSON.stringify(cols)); } catch(e) {}
+        removed.forEach(function(c){ sbSet(c, []); });
+        buildSidebar(); applyFilters(); refreshSidebar();
+    }
+    document.getElementById('sidebarColsBtn').onclick = function() {
+        _sbDraft = sbCols.slice();
+        Swal.fire({
+            title: 'أعمدة الفلاتر الجانبية', html: sbDialogHtml(),
+            showCloseButton: true, closeButtonHtml: '<i class="fas fa-times"></i>',
+            showConfirmButton: true, confirmButtonText: 'حفظ',
+            showDenyButton: true, denyButtonText: 'استعادة الافتراضي',
+            customClass: { popup: 'rounded-4', htmlContainer: 'text-end' }
+        }).then(function(r) {
+            if (r.isConfirmed) sbApply(_sbDraft.slice());
+            else if (r.isDenied) { try { localStorage.removeItem('sidebar_cols'); } catch(e) {} sbApply(SB_DEFAULT.slice()); }
+        });
+    };
 
     // Selection & Bulk
     function updateArchiveBtnState() {
@@ -6097,7 +6127,7 @@
     document.getElementById('globalSearchInput').oninput = debouncedFilter;
     document.getElementById('clearFiltersBtn').onclick = () => {
         document.getElementById('globalSearchInput').value = "";
-        activeSenderFilter = []; activeRepFilter = []; activeStatusFilter = []; activeClosingFilter = [];
+        activeSenderFilter = []; activeRepFilter = []; activeStatusFilter = []; activeClosingFilter = []; activeSidebarFilters = {};
         activeStatsFilter = "visible"; activeColumnFilters = {};
         applyFilters(); refreshSidebar();
         document.querySelectorAll('th[data-col]').forEach(function(th) {
@@ -6129,7 +6159,7 @@
     document.querySelectorAll('.toolbar-stat-filter').forEach(b => b.onclick = () => { 
         if (b.dataset.statFilter === 'total') {
             document.getElementById('globalSearchInput').value = "";
-            activeSenderFilter = []; activeRepFilter = []; activeStatusFilter = []; activeClosingFilter = [];
+            activeSenderFilter = []; activeRepFilter = []; activeStatusFilter = []; activeClosingFilter = []; activeSidebarFilters = {};
             activeColumnFilters = {};
             document.querySelectorAll('th[data-col]').forEach(function(th) {
                 th.classList.remove('col-filtered');
@@ -6144,12 +6174,6 @@
         activeStatsFilter = b.dataset.statFilter; 
         applyFilters(); 
         if (b.dataset.statFilter === 'total') refreshSidebar();
-    });
-    document.querySelectorAll('.sidebar-tab-btn').forEach(b => b.onclick = () => {
-        document.querySelectorAll('.sidebar-tab-btn').forEach(x => x.classList.remove('active'));
-        document.querySelectorAll('.sender-filter-panel').forEach(x => x.classList.remove('active'));
-        b.classList.add('active'); sidebarTab = b.dataset.tab;
-        document.getElementById(sidebarTab + 'Panel').classList.add('active'); refreshSidebar();
     });
     function toggleTheme() {
         const root = document.documentElement;
