@@ -124,6 +124,8 @@
             background: #f8fafc; font-family: Tahoma, sans-serif;
         }
 
+        .data-table th.col-std .column-filter-trigger { max-width: 100%; }
+        .data-table th.col-std .column-filter-trigger span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; max-width: 100%; }
         .resizer {
             position: absolute;
             left: 0; /* Since RTL, right becomes left for dragging from the left edge of header? No, RTL table headers resize from the left side usually in logic, or right. Let's try right for standard feel. */
@@ -2926,6 +2928,7 @@
     }
 
     var _visibleColsCache = [];
+    var DEFAULT_COL_W = 100; // fixed default so the header looks the same before and after data loads
     function buildTableHeader() {
         var thead = document.getElementById('tableHeader');
         var len = currentDisplayData.length;
@@ -2944,7 +2947,7 @@
             var v = activeColumnFilters[c] || '';
             var hasFilter = Array.isArray(v) ? true : !!v;
             var label = Array.isArray(v) ? (v.length ? v.length + ' مختار' : 'لا شيء') : v;
-            var w = colWidths[c] ? 'style="width:' + colWidths[c] + 'px"' : '';
+            var w = 'style="width:' + (colWidths[c] || DEFAULT_COL_W) + 'px"';
             html += '<th class="col-std' + (hasFilter ? ' col-filtered' : '') + '" data-col="' + c + '" ' + (w||'') + '><button class="column-filter-trigger ' + (hasFilter ? 'active' : '') + '" onclick="toggleColFilter(\'' + c + '\', this)"><span>' + (colDisplay[c] || c) + '</span>' + (hasFilter ? '<span class="column-filter-trigger-value">' + label + '</span>' : '') + '</button><div class="resizer" onmousedown="initResize(event, \'' + c + '\')"></div></th>';
         }
         thead.innerHTML = html + '</tr>';
