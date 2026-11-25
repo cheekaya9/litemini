@@ -922,6 +922,12 @@
         body.sel-lock .tab-btn, body.sel-lock #tabBar .btn, body.sel-lock .toolbar-stat-card, body.sel-lock #filterSidebar button { opacity: .55; cursor: not-allowed; }
         @keyframes selShake { 0%,100% { transform: translateX(-50%); } 25% { transform: translateX(calc(-50% - 8px)); } 75% { transform: translateX(calc(-50% + 8px)); } }
         #bulkActionBar.shake { animation: selShake .35s; }
+        /* Cloud sync status chip (header) */
+        .sync-chip { height: 36px; border-radius: 999px; padding: 0 14px; display: inline-flex; align-items: center; gap: 8px; font-weight: 700; font-size: 0.8rem; border: 1px solid; white-space: nowrap; flex-shrink: 0; }
+        .sync-chip small { font-weight: 500; opacity: .7; }
+        .sync-chip.ok { background: rgba(16,185,129,.12); border-color: rgba(16,185,129,.5); } .sync-chip.ok i { color: #10b981; }
+        .sync-chip.sy { background: rgba(59,130,246,.12); border-color: rgba(59,130,246,.5); } .sync-chip.sy i { color: #3b82f6; }
+        .sync-chip.er { background: rgba(245,158,11,.14); border-color: rgba(245,158,11,.6); } .sync-chip.er i { color: #f59e0b; }
         /* Account menu (header) */
         .acc-menu-wrap { position: relative; }
         .acc-menu { display: none; position: absolute; top: calc(100% + 8px); left: 0; min-width: 190px; background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 6px; box-shadow: 0 12px 30px rgba(0,0,0,0.18); z-index: 3000; }
@@ -1640,6 +1646,7 @@
                     <button class="tab-btn" data-tab="accounts" id="tabAccounts" style="display:none"><i class="fas fa-users-cog me-1"></i> إدارة الحسابات</button>
                 </div>
                 <div class="d-flex gap-1 align-items-center">
+                    <span id="syncChip" class="sync-chip ok" style="display:none" title="حالة المزامنة مع السحابة"></span>
                     <button id="errorLogBtn" class="btn btn-light btn-sm rounded-circle shadow-sm position-relative flex-shrink-0" title="سجل الأخطاء البرمجية">
                         <i class="fas fa-bug"></i>
                         <span id="errorBadge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger border border-light" style="font-size:0.55rem;display:none">0</span>
@@ -5074,6 +5081,26 @@
     const UPLOAD_NUMERIC = new Set(["المبلغ", "الصافي", "الشحن", "عدد", "عمولة المندوب"]);
 
     // ======================== LIVE SYNC HELPERS ========================
+    // ---- cloud sync status chip ----
+    var _syncInflight = 0, _syncLast = 0;
+    function _syncBegin() { _syncInflight++; syncChipRender(); }
+    function _syncEnd() { _syncInflight = Math.max(0, _syncInflight - 1); if (!_syncInflight && !_pendingSyncFailures.size) _syncLast = Date.now(); syncChipRender(); }
+    function syncChipRender() {
+        var el = document.getElementById('syncChip'); if (!el) return;
+        var shown = !!currentUser && document.getElementById('accountMenuBtn').style.display !== 'none';
+        el.style.display = shown ? 'inline-flex' : 'none';
+        if (!shown) return;
+        var n = _pendingSyncFailures.size, cls, html, tip;
+        if (!navigator.onLine) { cls = 'er'; html = '<i class="fas fa-wifi"></i> غير متصل'; tip = 'لا يوجد إنترنت، التعديلات ستُرسل عند عودته'; }
+        else if (n) { cls = 'er'; html = '<i class="fas fa-exclamation-triangle"></i> ' + n + ' معلّقة'; tip = n + ' تعديل لم يصل للسحابة، تتم إعادة المحاولة تلقائياً'; }
+        else if (_syncInflight) { cls = 'sy'; html = '<i class="fas fa-sync-alt fa-spin"></i> جاري الرفع...'; tip = 'جاري الرفع والتأكد من السحابة'; }
+        else if (_syncLast) { cls = 'ok'; html = '<i class="fas fa-cloud"></i> تم الرفع والتأكد <small>' + new Date(_syncLast).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) + '</small>'; tip = 'تم الرفع وتأكدنا من السحابة'; }
+        else { cls = 'ok'; html = '<i class="fas fa-cloud"></i> متصل بالسحابة'; tip = 'متصل بالسحابة'; }
+        el.className = 'sync-chip ' + cls; el.innerHTML = html; el.title = tip;
+    }
+    window.addEventListener('online', syncChipRender);
+    window.addEventListener('offline', syncChipRender);
+
     function _markSyncFailure(key) {
         _pendingSyncFailures.add(key);
         _updateUploadBtnFlash();
@@ -5093,6 +5120,7 @@
             Swal.fire({ toast: true, position: 'top', icon: 'warning', title: 'تعذّر حفظ تعديل على السيرفر، ستتم إعادة المحاولة تلقائياً', showConfirmButton: false, timer: 3500 });
         }
         if (!n) _syncWarned = false;
+        syncChipRender();
     }
     setInterval(function() {
         if (!_pendingSyncFailures.size || !_dataFromServer) return;
@@ -5106,6 +5134,10 @@
 
     async function patchServerRow(r, col, value) {
         if (!_dataFromServer || !r || !r.code) return;
+        _syncBegin();
+        try { await _patchServerRowInner(r, col, value); } finally { _syncEnd(); }
+    }
+    async function _patchServerRowInner(r, col, value) {
         const arabicCol = reverseColMap[col] || col;
         if (!arabicCol || arabicCol === col) return;
         try {
@@ -5134,6 +5166,10 @@
 
     async function deleteServerRows(idSet) {
         if (!_dataFromServer) return;
+        _syncBegin();
+        try { await _deleteServerRowsInner(idSet); } finally { _syncEnd(); }
+    }
+    async function _deleteServerRowsInner(idSet) {
         const codes = [];
         idSet.forEach(id => {
             const r = fullDataset.find(x => x._id == id);
@@ -5183,6 +5219,10 @@
     }
 
     async function uploadShipments() {
+        _syncBegin();
+        try { return await _uploadShipmentsInner(); } finally { _syncEnd(); }
+    }
+    async function _uploadShipmentsInner() {
         if (!fullDataset.length) {
             Swal.fire({ icon: 'warning', title: 'تنبيه', text: 'لا توجد بيانات لرفعها' });
             return;
@@ -6567,7 +6607,7 @@
         document.getElementById('loggedInUserName').textContent = user.username || user.email || 'مستخدم';
         document.getElementById('tabBar').style.display = 'flex';
         applyTabPermissions(user);
-        document.getElementById('accountMenuBtn').style.display = 'inline-block';
+        document.getElementById('accountMenuBtn').style.display = 'inline-block'; syncChipRender();
         if (user.username) {
             document.getElementById('loggedInUserName').textContent = user.username;
             localStorage.setItem('employee_name', user.username);
@@ -6643,7 +6683,7 @@
                 document.getElementById('loginOverlay').classList.remove('hidden');
                 document.getElementById('loginError').classList.remove('show');
                 document.getElementById('loggedInUserBadge').style.display = 'none';
-                document.getElementById('accountMenuBtn').style.display = 'none'; closeAccountMenu();
+                document.getElementById('accountMenuBtn').style.display = 'none'; closeAccountMenu(); syncChipRender();
                 document.getElementById('tabBar').style.display = 'none';
                 document.getElementById('dailyFilter').style.display = 'none';
                 document.getElementById('loginPassword').value = '';
@@ -7241,6 +7281,7 @@
                 return item;
             });
             _dataFromServer = true;
+            _syncLast = Date.now(); syncChipRender();
             _serverDailyValue = dailyValue;
             document.getElementById('serverRefreshBtn').style.display = 'inline-block';
             showFileName(`اليومية: ${dailyValue}`, 'server');
