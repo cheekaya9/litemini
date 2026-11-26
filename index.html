@@ -124,6 +124,7 @@
             background: #f8fafc; font-family: Tahoma, sans-serif;
         }
 
+        .data-table th.col-std { padding-left: 10px; padding-right: 10px; }
         .data-table th.col-std .column-filter-trigger { max-width: 100%; }
         .data-table th.col-std .column-filter-trigger span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; max-width: 100%; }
         .resizer {
@@ -2918,7 +2919,7 @@
     }
 
     var _visibleColsCache = [];
-    var DEFAULT_COL_W = 100; // fixed default so the header looks the same before and after data loads
+    var DEFAULT_COL_W = 104; // fixed default so the header looks the same before and after data loads
     function buildTableHeader() {
         var thead = document.getElementById('tableHeader');
         var len = currentDisplayData.length;
